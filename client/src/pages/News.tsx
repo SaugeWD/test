@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,40 +27,224 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Search, Newspaper, MapPin, ArrowRight, Bell, Plus, Users, Clock, Loader2 } from "lucide-react";
+import { Calendar, Search, Newspaper, MapPin, ArrowRight, Bell, Plus, Users, Clock, Loader2, Upload, FileText, X, Image as ImageIcon } from "lucide-react";
 import { Link } from "wouter";
 import { SocialInteractions } from "@/components/SocialInteractions";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useUpload } from "@/hooks/use-upload";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 
 const newsSubmitSchema = z.object({
-  title: z.string().min(3, "Title must be at least 3 characters"),
-  content: z.string().min(10, "Content must be at least 10 characters"),
   category: z.string().min(1, "Category is required"),
-  excerpt: z.string().optional().default(""),
+  title: z.string().min(3, "Title must be at least 3 characters"),
+  excerpt: z.string().optional(),
+  content: z.string().min(10, "Content must be at least 10 characters"),
+  tags: z.string().optional(),
+  authorName: z.string().min(1, "Author name is required"),
+  authorEmail: z.string().email().optional().or(z.literal("")),
+  authorPhone: z.string().optional(),
+  location: z.string().optional(),
   source: z.string().optional(),
   sourceUrl: z.string().url().optional().or(z.literal("")),
-  image: z.string().url().optional().or(z.literal("")),
+  publishDate: z.string().optional(),
+  isEvent: z.boolean().default(false),
+  eventDate: z.string().optional(),
+  eventEndDate: z.string().optional(),
+  eventTime: z.string().optional(),
+  eventLocation: z.string().optional(),
+  eventPrice: z.string().optional(),
+  eventRegistrationUrl: z.string().url().optional().or(z.literal("")),
+}).refine((data) => {
+  if (data.isEvent) {
+    if (!data.eventDate && !data.eventLocation) {
+      return false;
+    }
+    if (!data.eventDate) {
+      return false;
+    }
+    if (!data.eventLocation) {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "Event date and location are required for events",
+  path: ["eventDate"],
+}).refine((data) => {
+  if (data.isEvent && !data.eventLocation) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Event location is required for events",
+  path: ["eventLocation"],
 });
 
 type NewsSubmitFormValues = z.infer<typeof newsSubmitSchema>;
 
+interface UploadedImage {
+  path: string;
+  name: string;
+  preview: string;
+}
+
 function NewsSubmitDialog() {
   const [isOpen, setIsOpen] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [pdfAttachment, setPdfAttachment] = useState<{ path: string; name: string } | null>(null);
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
+  const [pdfUploadProgress, setPdfUploadProgress] = useState(0);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  
   const { toast } = useToast();
+  const { uploadFile } = useUpload();
 
   const form = useForm<NewsSubmitFormValues>({
     resolver: zodResolver(newsSubmitSchema),
     defaultValues: {
-      title: "",
-      content: "",
       category: "",
+      title: "",
       excerpt: "",
+      content: "",
+      tags: "",
+      authorName: "",
+      authorEmail: "",
+      authorPhone: "",
+      location: "",
       source: "",
       sourceUrl: "",
-      image: "",
+      publishDate: "",
+      isEvent: false,
+      eventDate: "",
+      eventEndDate: "",
+      eventTime: "",
+      eventLocation: "",
+      eventPrice: "",
+      eventRegistrationUrl: "",
     },
   });
+
+  const isEvent = form.watch("isEvent");
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const remainingSlots = 5 - uploadedImages.length;
+    if (remainingSlots <= 0) {
+      toast({
+        title: "Maximum images reached",
+        description: "You can upload up to 5 images",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+    setIsUploadingImage(true);
+    setImageUploadProgress(0);
+
+    for (let i = 0; i < filesToUpload.length; i++) {
+      const file = filesToUpload[i];
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Invalid file type",
+          description: `${file.name} is not an image`,
+          variant: "destructive",
+        });
+        continue;
+      }
+
+      try {
+        const result = await uploadFile(file);
+        if (result) {
+          const preview = URL.createObjectURL(file);
+          setUploadedImages((prev) => [
+            ...prev,
+            { path: result.objectPath, name: file.name, preview },
+          ]);
+        }
+        setImageUploadProgress(((i + 1) / filesToUpload.length) * 100);
+      } catch (error) {
+        toast({
+          title: "Upload failed",
+          description: `Failed to upload ${file.name}`,
+          variant: "destructive",
+        });
+      }
+    }
+
+    setIsUploadingImage(false);
+    setImageUploadProgress(0);
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a PDF file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingPdf(true);
+    setPdfUploadProgress(0);
+
+    try {
+      setPdfUploadProgress(30);
+      const result = await uploadFile(file);
+      if (result) {
+        setPdfAttachment({ path: result.objectPath, name: file.name });
+        setPdfUploadProgress(100);
+      }
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload PDF",
+        variant: "destructive",
+      });
+    }
+
+    setIsUploadingPdf(false);
+    setPdfUploadProgress(0);
+    if (pdfInputRef.current) {
+      pdfInputRef.current.value = "";
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages((prev) => {
+      const newImages = [...prev];
+      URL.revokeObjectURL(newImages[index].preview);
+      newImages.splice(index, 1);
+      return newImages;
+    });
+  };
+
+  const removePdf = () => {
+    setPdfAttachment(null);
+  };
+
+  const resetForm = () => {
+    form.reset();
+    uploadedImages.forEach((img) => URL.revokeObjectURL(img.preview));
+    setUploadedImages([]);
+    setPdfAttachment(null);
+  };
 
   const submitNewsMutation = useMutation({
     mutationFn: async (data: NewsSubmitFormValues) => {
@@ -69,16 +253,31 @@ function NewsSubmitDialog() {
         content: data.content,
         category: data.category,
         excerpt: data.excerpt || data.content.substring(0, 200),
-        source: data.source || "ArchNet Community",
+        source: data.source || undefined,
         sourceUrl: data.sourceUrl || undefined,
-        image: data.image || "/placeholder.jpg",
+        image: uploadedImages.length > 0 ? uploadedImages[0].path : undefined,
+        images: uploadedImages.map((img) => img.path),
+        pdfAttachment: pdfAttachment?.path || undefined,
+        tags: data.tags ? data.tags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
+        authorName: data.authorName,
+        authorEmail: data.authorEmail || undefined,
+        authorPhone: data.authorPhone || undefined,
+        location: data.location || undefined,
+        publishDate: data.publishDate ? new Date(data.publishDate).toISOString() : undefined,
+        isEvent: data.isEvent,
+        eventDate: data.isEvent && data.eventDate ? new Date(data.eventDate).toISOString() : undefined,
+        eventEndDate: data.isEvent && data.eventEndDate ? new Date(data.eventEndDate).toISOString() : undefined,
+        eventTime: data.isEvent ? data.eventTime : undefined,
+        eventLocation: data.isEvent ? data.eventLocation : undefined,
+        eventPrice: data.isEvent ? data.eventPrice : undefined,
+        eventRegistrationUrl: data.isEvent && data.eventRegistrationUrl ? data.eventRegistrationUrl : undefined,
       });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/news"] });
       setIsOpen(false);
-      form.reset();
+      resetForm();
       toast({
         title: "Submission received",
         description: "Your news/event will be reviewed and published soon.",
@@ -98,14 +297,17 @@ function NewsSubmitDialog() {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open);
+      if (!open) resetForm();
+    }}>
       <DialogTrigger asChild>
         <Button size="lg" data-testid="button-submit-news">
           <Plus className="mr-2 h-5 w-5" />
           Submit News
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-2xl flex items-center gap-2">
             <Newspaper className="h-6 w-6" />
@@ -116,8 +318,14 @@ function NewsSubmitDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5 mt-4">
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 mt-4">
           <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Newspaper className="h-4 w-4" />
+              Basic Information
+            </div>
+            <Separator />
+            
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
               <Select value={form.watch("category")} onValueChange={(value) => form.setValue("category", value)}>
@@ -133,6 +341,9 @@ function NewsSubmitDialog() {
                   <SelectItem value="Sustainability">Sustainability</SelectItem>
                 </SelectContent>
               </Select>
+              {form.formState.errors.category && (
+                <p className="text-xs text-destructive">{form.formState.errors.category.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -149,13 +360,26 @@ function NewsSubmitDialog() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="source">Source (Optional)</Label>
+              <Label htmlFor="excerpt">Excerpt/Summary</Label>
               <Input
-                id="source"
-                placeholder="News source or organization"
-                {...form.register("source")}
-                data-testid="input-news-source"
+                id="excerpt"
+                placeholder="Brief summary of the news"
+                {...form.register("excerpt")}
+                data-testid="input-news-excerpt"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="publishDate">Publish Date (Optional)</Label>
+              <Input
+                id="publishDate"
+                type="date"
+                {...form.register("publishDate")}
+                data-testid="input-news-publish-date"
+              />
+              {form.formState.errors.publishDate && (
+                <p className="text-xs text-destructive">{form.formState.errors.publishDate.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -163,7 +387,7 @@ function NewsSubmitDialog() {
               <Textarea
                 id="content"
                 placeholder="Provide detailed content..."
-                rows={5}
+                rows={8}
                 {...form.register("content")}
                 data-testid="textarea-news-content"
               />
@@ -173,26 +397,290 @@ function NewsSubmitDialog() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="image-url">Image URL (Optional)</Label>
+              <Label htmlFor="tags">Tags</Label>
               <Input
-                id="image-url"
-                type="url"
-                placeholder="https://example.com/image.jpg"
-                {...form.register("image")}
-                data-testid="input-news-image"
+                id="tags"
+                placeholder="architecture, design, sustainability (comma-separated)"
+                {...form.register("tags")}
+                data-testid="input-news-tags"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="source-url">Source URL (Optional)</Label>
+              <Label htmlFor="location">Location</Label>
               <Input
-                id="source-url"
+                id="location"
+                placeholder="Where is this news from?"
+                {...form.register("location")}
+                data-testid="input-news-location"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <ImageIcon className="h-4 w-4" />
+              Media
+            </div>
+            <Separator />
+
+            <div className="space-y-2">
+              <Label>Images (up to 5)</Label>
+              <div className="space-y-3">
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  data-testid="input-news-images"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={isUploadingImage || uploadedImages.length >= 5}
+                  className="w-full"
+                  data-testid="button-upload-images"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {isUploadingImage ? "Uploading..." : `Upload Images (${uploadedImages.length}/5)`}
+                </Button>
+                
+                {isUploadingImage && (
+                  <Progress value={imageUploadProgress} className="h-2" data-testid="progress-image-upload" />
+                )}
+
+                {uploadedImages.length > 0 && (
+                  <div className="grid grid-cols-5 gap-2">
+                    {uploadedImages.map((img, index) => (
+                      <div key={index} className="relative group aspect-square">
+                        <img
+                          src={img.preview}
+                          alt={img.name}
+                          className="w-full h-full object-cover rounded-md border"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => removeImage(index)}
+                          data-testid={`button-remove-image-${index}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>PDF Attachment</Label>
+              <div className="space-y-3">
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handlePdfUpload}
+                  className="hidden"
+                  data-testid="input-news-pdf"
+                />
+                
+                {!pdfAttachment ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => pdfInputRef.current?.click()}
+                      disabled={isUploadingPdf}
+                      className="w-full"
+                      data-testid="button-upload-pdf"
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      {isUploadingPdf ? "Uploading..." : "Upload PDF"}
+                    </Button>
+                    {isUploadingPdf && (
+                      <Progress value={pdfUploadProgress} className="h-2" data-testid="progress-pdf-upload" />
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between p-3 border rounded-md bg-secondary/30">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm truncate max-w-[200px]">{pdfAttachment.name}</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={removePdf}
+                      data-testid="button-remove-pdf"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Users className="h-4 w-4" />
+              Author Information
+            </div>
+            <Separator />
+
+            <div className="space-y-2">
+              <Label htmlFor="authorName">Author Name *</Label>
+              <Input
+                id="authorName"
+                placeholder="Your name"
+                {...form.register("authorName")}
+                data-testid="input-news-author-name"
+              />
+              {form.formState.errors.authorName && (
+                <p className="text-xs text-destructive">{form.formState.errors.authorName.message}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="authorEmail">Author Email</Label>
+                <Input
+                  id="authorEmail"
+                  type="email"
+                  placeholder="email@example.com"
+                  {...form.register("authorEmail")}
+                  data-testid="input-news-author-email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="authorPhone">Author Phone</Label>
+                <Input
+                  id="authorPhone"
+                  type="tel"
+                  placeholder="+962 7XX XXX XXX"
+                  {...form.register("authorPhone")}
+                  data-testid="input-news-author-phone"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="source">Source Name</Label>
+              <Input
+                id="source"
+                placeholder="Original source or organization"
+                {...form.register("source")}
+                data-testid="input-news-source"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sourceUrl">Source URL</Label>
+              <Input
+                id="sourceUrl"
                 type="url"
-                placeholder="https://example.com"
+                placeholder="https://example.com/original-article"
                 {...form.register("sourceUrl")}
                 data-testid="input-news-source-url"
               />
             </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              Event Details
+            </div>
+            <Separator />
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="isEvent"
+                checked={isEvent}
+                onCheckedChange={(checked) => form.setValue("isEvent", checked === true)}
+                data-testid="checkbox-is-event"
+              />
+              <Label htmlFor="isEvent" className="cursor-pointer">
+                This is an event
+              </Label>
+            </div>
+
+            {isEvent && (
+              <div className="space-y-4 pl-6 border-l-2 border-accent/30">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="eventDate">Event Date *</Label>
+                    <Input
+                      id="eventDate"
+                      type="date"
+                      {...form.register("eventDate")}
+                      data-testid="input-event-date"
+                    />
+                    {form.formState.errors.eventDate && (
+                      <p className="text-xs text-destructive">{form.formState.errors.eventDate.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="eventEndDate">Event End Date</Label>
+                    <Input
+                      id="eventEndDate"
+                      type="date"
+                      {...form.register("eventEndDate")}
+                      data-testid="input-event-end-date"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="eventTime">Event Time</Label>
+                    <Input
+                      id="eventTime"
+                      type="time"
+                      {...form.register("eventTime")}
+                      data-testid="input-event-time"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="eventPrice">Event Price</Label>
+                    <Input
+                      id="eventPrice"
+                      placeholder="Free or 50 JOD"
+                      {...form.register("eventPrice")}
+                      data-testid="input-event-price"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="eventLocation">Event Location *</Label>
+                  <Input
+                    id="eventLocation"
+                    placeholder="Venue name and address"
+                    {...form.register("eventLocation")}
+                    data-testid="input-event-location"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="eventRegistrationUrl">Event Registration URL</Label>
+                  <Input
+                    id="eventRegistrationUrl"
+                    type="url"
+                    placeholder="https://example.com/register"
+                    {...form.register("eventRegistrationUrl")}
+                    data-testid="input-event-registration-url"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-4 border-t">
@@ -207,11 +695,18 @@ function NewsSubmitDialog() {
             </Button>
             <Button
               type="submit"
-              disabled={submitNewsMutation.isPending}
+              disabled={submitNewsMutation.isPending || isUploadingImage || isUploadingPdf}
               className="flex-1"
               data-testid="button-confirm-submit"
             >
-              {submitNewsMutation.isPending ? "Submitting..." : "Submit"}
+              {submitNewsMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                "Submit"
+              )}
             </Button>
           </div>
         </form>
