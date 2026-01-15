@@ -1264,6 +1264,8 @@ interface NamedGallerySectionProps {
 function NamedGallerySection({ title, icon, items, onImageClick }: NamedGallerySectionProps) {
   if (items.length === 0) return null;
 
+  const isPdf = (path: string) => path.toLowerCase().endsWith('.pdf');
+
   return (
     <Card className="overflow-visible">
       <CardHeader className="pb-3">
@@ -1282,46 +1284,59 @@ function NamedGallerySection({ title, icon, items, onImageClick }: NamedGalleryS
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="space-y-4">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
           {items.map((item, index) => {
             const imgSrc = item.path.startsWith('/objects') || item.path.startsWith('http') 
               ? item.path 
               : `/objects/${item.path}`;
+            const isFilePdf = isPdf(item.path);
+            
             return (
-              <div
+              <a
                 key={index}
-                className="group relative w-full overflow-hidden rounded-xl border-2 border-border bg-background transition-all hover:border-primary/50 hover:shadow-xl"
+                href={imgSrc}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative block overflow-hidden rounded-lg border bg-muted/30 transition-all hover:border-primary/50 hover:shadow-lg"
                 data-testid={`gallery-item-${title.toLowerCase().replace(/\s+/g, '-')}-${index}`}
               >
-                <div className="aspect-[3/2] w-full overflow-hidden bg-neutral-50 dark:bg-neutral-900">
-                  <iframe
-                    src={imgSrc}
-                    title={item.name || `${title} ${index + 1}`}
-                    className="h-full w-full border-0"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2 px-4 py-3 border-t bg-muted/50">
-                  <span className="text-sm font-semibold truncate">
+                {isFilePdf ? (
+                  <div className="aspect-[4/3] w-full flex items-center justify-center bg-muted">
+                    <div className="text-center">
+                      <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                      <span className="text-sm text-muted-foreground">PDF Document</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="aspect-[4/3] w-full overflow-hidden">
+                    <img
+                      src={imgSrc}
+                      alt={item.name || `${title} ${index + 1}`}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center justify-between">
+                  <span className="text-sm font-medium text-white drop-shadow-md opacity-0 group-hover:opacity-100 transition-opacity truncate">
                     {item.name || `${title.slice(0, -1)} ${index + 1}`}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={imgSrc}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-xs text-white/80 drop-shadow-md flex items-center gap-1">
                       <ExternalLink className="h-3 w-3" />
                       Open
-                    </a>
-                    <Badge variant="secondary" className="text-xs flex-shrink-0">
-                      {index + 1} of {items.length}
-                    </Badge>
+                    </span>
                   </div>
                 </div>
-              </div>
+                {item.name && (
+                  <div className="absolute top-2 left-2">
+                    <Badge variant="secondary" className="text-xs bg-background/80 backdrop-blur-sm">
+                      {item.name}
+                    </Badge>
+                  </div>
+                )}
+              </a>
             );
           })}
         </div>
