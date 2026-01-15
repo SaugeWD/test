@@ -41,6 +41,7 @@ import {
   X,
   FileText,
   Image as ImageIcon,
+  Heart,
 } from "lucide-react";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { useAuth } from "@/context/AuthContext";
@@ -415,6 +416,24 @@ export default function MessagesPage() {
     },
   });
 
+  const likeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/messages/${id}/like`);
+      return response.json();
+    },
+    onSuccess: () => {
+      if (selectedConversation) {
+        queryClient.invalidateQueries({
+          queryKey: ["/api/messages", selectedConversation.user.id],
+        });
+      }
+    },
+  });
+
+  const handleLikeMessage = (messageId: string) => {
+    likeMutation.mutate(messageId);
+  };
+
   const markReadMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await apiRequest("PATCH", `/api/messages/${id}/read`);
@@ -759,6 +778,9 @@ export default function MessagesPage() {
                           const isEdited = message.isEdited;
                           const replyTo = getReplyToContent(message.replyToId);
                           const attachments = message.attachments || [];
+                          const likedBy = message.likedBy || [];
+                          const isLiked = currentUser ? likedBy.includes(currentUser.id) : false;
+                          const likeCount = likedBy.length;
 
                           return (
                             <div
@@ -840,14 +862,15 @@ export default function MessagesPage() {
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="flex items-start gap-1">
+                                  <div className="flex items-start gap-1 relative">
                                     <div
                                       className={cn(
                                         "rounded-lg px-4 py-2",
                                         isOwn
                                           ? "bg-accent text-accent-foreground"
                                           : "bg-secondary",
-                                        isDeleted && "opacity-60"
+                                        isDeleted && "opacity-60",
+                                        likeCount > 0 && "mb-3"
                                       )}
                                     >
                                       <p className={cn(
@@ -894,51 +917,75 @@ export default function MessagesPage() {
                                     </div>
 
                                     {!isDeleted && (
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            data-testid={`button-message-menu-${message.id}`}
-                                          >
-                                            <MoreVertical className="h-3 w-3" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align={isOwn ? "end" : "start"}>
-                                          <DropdownMenuItem
-                                            onClick={() => setReplyToMessage(message)}
-                                            data-testid={`button-reply-${message.id}`}
-                                          >
-                                            <Reply className="mr-2 h-4 w-4" />
-                                            Reply
-                                          </DropdownMenuItem>
-                                          {isOwn && (
-                                            <>
-                                              <DropdownMenuItem
-                                                onClick={() => {
-                                                  setEditingMessage(message);
-                                                  setEditText(message.content);
-                                                }}
-                                                data-testid={`button-edit-${message.id}`}
-                                              >
-                                                <Edit className="mr-2 h-4 w-4" />
-                                                Edit
-                                              </DropdownMenuItem>
-                                              <DropdownMenuSeparator />
-                                              <DropdownMenuItem
-                                                onClick={() => handleDeleteMessage(message.id)}
-                                                className="text-destructive"
-                                                disabled={deleteMutation.isPending}
-                                                data-testid={`button-delete-${message.id}`}
-                                              >
-                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                Delete
-                                              </DropdownMenuItem>
-                                            </>
+                                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className={cn(
+                                            "h-6 w-6",
+                                            isLiked && "text-red-500"
                                           )}
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
+                                          onClick={() => handleLikeMessage(message.id)}
+                                          disabled={likeMutation.isPending}
+                                          data-testid={`button-like-${message.id}`}
+                                        >
+                                          <Heart className={cn("h-3 w-3", isLiked && "fill-current")} />
+                                        </Button>
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6"
+                                              data-testid={`button-message-menu-${message.id}`}
+                                            >
+                                              <MoreVertical className="h-3 w-3" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align={isOwn ? "end" : "start"}>
+                                            <DropdownMenuItem
+                                              onClick={() => setReplyToMessage(message)}
+                                              data-testid={`button-reply-${message.id}`}
+                                            >
+                                              <Reply className="mr-2 h-4 w-4" />
+                                              Reply
+                                            </DropdownMenuItem>
+                                            {isOwn && (
+                                              <>
+                                                <DropdownMenuItem
+                                                  onClick={() => {
+                                                    setEditingMessage(message);
+                                                    setEditText(message.content);
+                                                  }}
+                                                  data-testid={`button-edit-${message.id}`}
+                                                >
+                                                  <Edit className="mr-2 h-4 w-4" />
+                                                  Edit
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                  onClick={() => handleDeleteMessage(message.id)}
+                                                  className="text-destructive"
+                                                  disabled={deleteMutation.isPending}
+                                                  data-testid={`button-delete-${message.id}`}
+                                                >
+                                                  <Trash2 className="mr-2 h-4 w-4" />
+                                                  Delete
+                                                </DropdownMenuItem>
+                                              </>
+                                            )}
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </div>
+                                    )}
+                                    {likeCount > 0 && (
+                                      <div className={cn(
+                                        "absolute -bottom-2 px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 text-[10px] flex items-center gap-0.5",
+                                        isOwn ? "left-0" : "right-0"
+                                      )}>
+                                        <Heart className="h-2.5 w-2.5 fill-current" />
+                                        {likeCount}
+                                      </div>
                                     )}
                                   </div>
                                 )}

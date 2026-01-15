@@ -1915,6 +1915,33 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  app.post("/api/messages/:id/like", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const messageId = req.params.id;
+      const userId = req.user!.id;
+      
+      const existingMessage = await storage.getMessage(messageId);
+      if (!existingMessage) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      
+      const likedBy = existingMessage.likedBy || [];
+      const isLiked = likedBy.includes(userId);
+      
+      let updatedLikedBy: string[];
+      if (isLiked) {
+        updatedLikedBy = likedBy.filter(id => id !== userId);
+      } else {
+        updatedLikedBy = [...likedBy, userId];
+      }
+      
+      const updated = await storage.updateMessage(messageId, { likedBy: updatedLikedBy });
+      res.json({ liked: !isLiked, likedBy: updatedLikedBy, message: updated });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to like message" });
+    }
+  });
+
   // ==================== ADMIN ROUTES ====================
 
   // GET /api/admin/users - List all users with pagination

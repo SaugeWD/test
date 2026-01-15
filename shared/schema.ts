@@ -359,6 +359,7 @@ export const messages = pgTable("messages", {
   readAt: timestamp("read_at"),
   isEdited: boolean("is_edited").default(false),
   isDeleted: boolean("is_deleted").default(false),
+  likedBy: text("liked_by").array(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
