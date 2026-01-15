@@ -42,6 +42,8 @@ export const users = pgTable("users", {
   expectedGraduation: text("expected_graduation"),
   // Portfolio sample (optional for all)
   portfolioUrl: text("portfolio_url"),
+  // Privacy settings
+  isActivityPublic: boolean("is_activity_public").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

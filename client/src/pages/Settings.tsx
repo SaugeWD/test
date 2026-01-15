@@ -66,6 +66,7 @@ export default function SettingsPage() {
   const [allowMessagesFromNonConnections, setAllowMessagesFromNonConnections] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [inAppNotifications, setInAppNotifications] = useState(true);
+  const [isActivityPublic, setIsActivityPublic] = useState(false);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -100,6 +101,7 @@ export default function SettingsPage() {
         title: user.title || "",
         location: user.location || "",
       });
+      setIsActivityPublic(user.isActivityPublic || false);
     }
   }, [user, profileForm]);
 
@@ -174,6 +176,32 @@ export default function SettingsPage() {
         description: "Avatar upload functionality will be available soon.",
       });
     }
+  };
+
+  const updatePrivacyMutation = useMutation({
+    mutationFn: async (data: { isActivityPublic: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/users/${user?.id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({
+        title: "Privacy updated",
+        description: "Your privacy settings have been saved.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update settings",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleActivityPublicChange = (checked: boolean) => {
+    setIsActivityPublic(checked);
+    updatePrivacyMutation.mutate({ isActivityPublic: checked });
   };
 
   if (authLoading) {
@@ -588,6 +616,20 @@ export default function SettingsPage() {
                       checked={allowMessagesFromNonConnections} 
                       onCheckedChange={setAllowMessagesFromNonConnections}
                       data-testid="switch-allow-messages"
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Show Activity Publicly</Label>
+                      <p className="text-sm text-muted-foreground">Allow others to see your likes and comments on your profile</p>
+                    </div>
+                    <Switch 
+                      checked={isActivityPublic} 
+                      onCheckedChange={handleActivityPublicChange}
+                      data-testid="switch-activity-public"
                     />
                   </div>
 

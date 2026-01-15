@@ -652,10 +652,12 @@ export default function ProfilePage() {
                     <Newspaper className="mr-2 h-4 w-4" />
                     News
                   </TabsTrigger>
-                  <TabsTrigger value="activity" data-testid="tab-activity">
-                    <Briefcase className="mr-2 h-4 w-4" />
-                    Activity
-                  </TabsTrigger>
+                  {(isOwnProfile || profileUser?.isActivityPublic) && (
+                    <TabsTrigger value="activity" data-testid="tab-activity">
+                      <Briefcase className="mr-2 h-4 w-4" />
+                      Activity
+                    </TabsTrigger>
+                  )}
                 </TabsList>
 
                 <TabsContent value="posts">
