@@ -8,7 +8,8 @@ import {
   type Plugin, type InsertPlugin, type News, type InsertNews, type Message, type InsertMessage,
   type Notification, type InsertNotification, type Like, type InsertLike, type Comment, type InsertComment,
   type SavedItem, type InsertSavedItem, type Follow, type InsertFollow, type Report, type InsertReport,
-  type UniversityMembership, type InsertUniversityMembership
+  type UniversityMembership, type InsertUniversityMembership,
+  type JobApplication, type InsertJobApplication
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, or } from "drizzle-orm";
@@ -54,6 +55,12 @@ export interface IStorage {
   getJobs(limit?: number): Promise<Job[]>;
   getJob(id: string): Promise<Job | undefined>;
   createJob(job: InsertJob): Promise<Job>;
+
+  // Job Applications
+  getJobApplication(jobId: string, userId: string): Promise<JobApplication | undefined>;
+  getJobApplications(jobId: string): Promise<JobApplication[]>;
+  getUserJobApplications(userId: string): Promise<JobApplication[]>;
+  createJobApplication(application: InsertJobApplication): Promise<JobApplication>;
 
   // Research
   getResearch(limit?: number): Promise<Research[]>;
@@ -275,6 +282,30 @@ export class DatabaseStorage implements IStorage {
 
   async createJob(job: InsertJob): Promise<Job> {
     const [created] = await db.insert(jobs).values(job).returning();
+    return created;
+  }
+
+  // Job Applications
+  async getJobApplication(jobId: string, userId: string): Promise<JobApplication | undefined> {
+    const [application] = await db.select().from(jobApplications)
+      .where(and(eq(jobApplications.jobId, jobId), eq(jobApplications.userId, userId)));
+    return application || undefined;
+  }
+
+  async getJobApplications(jobId: string): Promise<JobApplication[]> {
+    return db.select().from(jobApplications)
+      .where(eq(jobApplications.jobId, jobId))
+      .orderBy(desc(jobApplications.createdAt));
+  }
+
+  async getUserJobApplications(userId: string): Promise<JobApplication[]> {
+    return db.select().from(jobApplications)
+      .where(eq(jobApplications.userId, userId))
+      .orderBy(desc(jobApplications.createdAt));
+  }
+
+  async createJobApplication(application: InsertJobApplication): Promise<JobApplication> {
+    const [created] = await db.insert(jobApplications).values(application).returning();
     return created;
   }
 

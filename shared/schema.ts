@@ -206,6 +206,10 @@ export const jobApplications = pgTable("job_applications", {
   userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
   coverLetter: text("cover_letter"),
   resumeUrl: text("resume_url"),
+  portfolioUrl: text("portfolio_url"),
+  phone: text("phone"),
+  email: text("email"),
+  useArchNetProfile: boolean("use_archnet_profile").default(true),
   status: text("status").default("pending"),
   createdAt: timestamp("created_at").defaultNow(),
 });

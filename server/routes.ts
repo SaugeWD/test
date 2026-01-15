@@ -3,7 +3,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { registerSchema, loginSchema, insertPostSchema, insertProjectSchema, insertCommentSchema, insertResearchSchema, insertNewsSchema, insertReportSchema, insertJobSchema, insertCompetitionSchema, projects, research, news, users, posts, competitions, jobs } from "@shared/schema";
+import { registerSchema, loginSchema, insertPostSchema, insertProjectSchema, insertCommentSchema, insertResearchSchema, insertNewsSchema, insertReportSchema, insertJobSchema, insertJobApplicationSchema, insertCompetitionSchema, projects, research, news, users, posts, competitions, jobs } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { eq, sql, and } from "drizzle-orm";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -947,6 +947,89 @@ export async function registerRoutes(app: Express): Promise<void> {
       res.status(201).json(job);
     } catch (error) {
       res.status(500).json({ message: "Failed to create job" });
+    }
+  });
+
+  // ==================== JOB APPLICATIONS ROUTES ====================
+
+  // Apply for a job
+  app.post("/api/jobs/:jobId/apply", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { jobId } = req.params;
+      const userId = req.user!.id;
+
+      // Check if job exists
+      const job = await storage.getJob(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Check if user already applied
+      const existingApplication = await storage.getJobApplication(jobId, userId);
+      if (existingApplication) {
+        return res.status(400).json({ message: "You have already applied for this job" });
+      }
+
+      const result = insertJobApplicationSchema.safeParse({
+        jobId,
+        userId,
+        coverLetter: req.body.coverLetter,
+        resumeUrl: req.body.resumeUrl,
+        portfolioUrl: req.body.portfolioUrl,
+        phone: req.body.phone,
+        email: req.body.email,
+        useArchNetProfile: req.body.useArchNetProfile ?? true,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ message: fromZodError(result.error).message });
+      }
+
+      const application = await storage.createJobApplication(result.data);
+      res.status(201).json(application);
+    } catch (error) {
+      console.error("Error applying for job:", error);
+      res.status(500).json({ message: "Failed to submit application" });
+    }
+  });
+
+  // Get user's applications
+  app.get("/api/my-applications", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const applications = await storage.getUserJobApplications(req.user!.id);
+      res.json(applications);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch applications" });
+    }
+  });
+
+  // Check if user has applied to a job
+  app.get("/api/jobs/:jobId/application", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const application = await storage.getJobApplication(req.params.jobId, req.user!.id);
+      res.json({ hasApplied: !!application, application });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to check application status" });
+    }
+  });
+
+  // Get applications for a job (for firm owners)
+  app.get("/api/jobs/:jobId/applications", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const job = await storage.getJob(req.params.jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Only allow job poster or admin to view applications
+      if (job.postedById !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to view applications" });
+      }
+
+      const applications = await storage.getJobApplications(req.params.jobId);
+      res.json(applications);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch applications" });
     }
   });
 
