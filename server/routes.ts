@@ -1033,6 +1033,26 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // Delete a job
+  app.delete("/api/jobs/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const job = await storage.getJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Only allow job poster or admin to delete
+      if (job.postedById !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to delete this job" });
+      }
+
+      await storage.deleteJob(req.params.id);
+      res.json({ message: "Job deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete job" });
+    }
+  });
+
   // ==================== RESEARCH ROUTES ====================
 
   app.get("/api/research", optionalAuth, async (req: AuthenticatedRequest, res) => {

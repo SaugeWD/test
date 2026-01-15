@@ -7,15 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Search, Briefcase, MapPin, Clock, DollarSign, Building, Filter, Loader2, Plus, Calendar, ExternalLink, Building2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Search, Briefcase, MapPin, Clock, DollarSign, Building, Filter, Loader2, Plus, Calendar, ExternalLink, Building2, Share2, Bookmark, MoreHorizontal, Pencil, Trash2, Send, User, Mail, Phone, Link as LinkIcon, FileText } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useSearch } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Job } from "@shared/schema";
+import { cn } from "@/lib/utils";
+import type { Job, JobApplication } from "@shared/schema";
 
 export default function JobsPage() {
   const searchQuery = useSearch();
@@ -393,70 +398,14 @@ export default function JobsPage() {
 
           <div className="space-y-4">
             {filteredJobs.map((job) => (
-              <Card key={job.id} className="hover-elevate" data-testid={`card-job-${job.id}`}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap mb-2">
-                        <CardTitle className="text-xl">{job.title}</CardTitle>
-                        {job.type && (
-                          <Link href={`/jobs?type=${job.type}`} onClick={(e) => e.stopPropagation()}>
-                            <Badge className={`border-0 cursor-pointer hover:opacity-80 transition-opacity ${getTypeColor(job.type)}`}>
-                              {job.type}
-                            </Badge>
-                          </Link>
-                        )}
-                      </div>
-                      <CardDescription className="flex items-center gap-1">
-                        <Building className="h-4 w-4" />
-                        {job.company}
-                      </CardDescription>
-                    </div>
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      {formatPostedDate(job.createdAt)}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {job.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">{job.description}</p>
-                  )}
-
-                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                    {job.location && (
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {job.location}
-                      </div>
-                    )}
-                    {job.salary && (
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4" />
-                        {job.salary}
-                      </div>
-                    )}
-                    {job.deadline && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        Apply by {new Date(job.deadline).toLocaleDateString()}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button variant="outline" asChild>
-                      <Link href={`/jobs/${job.id}`}>View Details</Link>
-                    </Button>
-                    {job.applicationUrl && (
-                      <Button asChild>
-                        <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer">
-                          Apply Now
-                        </a>
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <JobCard 
+                key={job.id} 
+                job={job} 
+                user={user}
+                toast={toast}
+                getTypeColor={getTypeColor}
+                formatPostedDate={formatPostedDate}
+              />
             ))}
           </div>
         </div>
@@ -464,5 +413,441 @@ export default function JobsPage() {
 
       <Footer />
     </div>
+  );
+}
+
+interface JobCardProps {
+  job: Job;
+  user: any;
+  toast: any;
+  getTypeColor: (type: string | null) => string;
+  formatPostedDate: (date: Date | string | null) => string;
+}
+
+function JobCard({ job, user, toast, getTypeColor, formatPostedDate }: JobCardProps) {
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [useArchNetProfile, setUseArchNetProfile] = useState(true);
+  const [coverLetter, setCoverLetter] = useState("");
+  const [customEmail, setCustomEmail] = useState("");
+  const [customPhone, setCustomPhone] = useState("");
+  const [portfolioUrl, setPortfolioUrl] = useState("");
+  const [resumeUrl, setResumeUrl] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const isAuthenticated = !!user;
+  const isOwner = user?.id === job.postedById;
+  const isDeadlinePassed = job.deadline ? new Date(job.deadline) < new Date() : false;
+
+  const { data: applicationStatus } = useQuery<{ hasApplied: boolean; application: JobApplication | null }>({
+    queryKey: ["/api/jobs", job.id, "application"],
+    enabled: isAuthenticated,
+  });
+
+  const { data: savedItems = [] } = useQuery<Array<{ targetType: string; targetId: string }>>({
+    queryKey: ["/api/saved"],
+    enabled: isAuthenticated,
+  });
+
+  const hasApplied = applicationStatus?.hasApplied || false;
+  const isSaved = savedItems.some((item) => item.targetType === "job" && item.targetId === job.id);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/saved", {
+        targetType: "job",
+        targetId: job.id,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      toast({ description: isSaved ? "Removed from saved" : "Job saved" });
+    },
+  });
+
+  const applyMutation = useMutation({
+    mutationFn: async (data: {
+      coverLetter: string;
+      useArchNetProfile: boolean;
+      email?: string;
+      phone?: string;
+      portfolioUrl?: string;
+      resumeUrl?: string;
+    }) => {
+      const res = await apiRequest("POST", `/api/jobs/${job.id}/apply`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs", job.id, "application"] });
+      toast({ title: "Application Submitted!", description: "Your application has been sent." });
+      setApplyDialogOpen(false);
+      resetApplyForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to submit", description: error.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/jobs/${job.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ description: "Job deleted successfully" });
+      setDeleteDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: "Failed to delete", variant: "destructive" });
+    },
+  });
+
+  const resetApplyForm = () => {
+    setCoverLetter("");
+    setCustomEmail("");
+    setCustomPhone("");
+    setPortfolioUrl("");
+    setResumeUrl("");
+    setUseArchNetProfile(true);
+  };
+
+  const handleApply = (e: React.FormEvent) => {
+    e.preventDefault();
+    applyMutation.mutate({
+      coverLetter: coverLetter.trim(),
+      useArchNetProfile,
+      email: useArchNetProfile ? undefined : customEmail.trim() || undefined,
+      phone: useArchNetProfile ? undefined : customPhone.trim() || undefined,
+      portfolioUrl: portfolioUrl.trim() || undefined,
+      resumeUrl: resumeUrl.trim() || undefined,
+    });
+  };
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/jobs/${job.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: job.title, text: `${job.title} at ${job.company}`, url });
+      } catch (err) {}
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast({ description: "Link copied to clipboard" });
+    }
+  };
+
+  const canApply = !isDeadlinePassed && job.isActive !== false && isAuthenticated && !hasApplied && !isOwner;
+
+  return (
+    <Card className="hover-elevate" data-testid={`card-job-${job.id}`}>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <CardTitle className="text-xl">{job.title}</CardTitle>
+              {job.type && (
+                <Link href={`/jobs?type=${job.type}`} onClick={(e) => e.stopPropagation()}>
+                  <Badge className={`border-0 cursor-pointer hover:opacity-80 transition-opacity ${getTypeColor(job.type)}`}>
+                    {job.type}
+                  </Badge>
+                </Link>
+              )}
+              {hasApplied && (
+                <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                  Applied
+                </Badge>
+              )}
+            </div>
+            <CardDescription className="flex items-center gap-1">
+              <Building className="h-4 w-4" />
+              {job.company}
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {formatPostedDate(job.createdAt)}
+            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-job-menu-${job.id}`}>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {isAuthenticated && (
+                  <DropdownMenuItem onClick={() => saveMutation.mutate()}>
+                    <Bookmark className={cn("h-4 w-4 mr-2", isSaved && "fill-current")} />
+                    {isSaved ? "Unsave" : "Save"}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={handleShare}>
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share
+                </DropdownMenuItem>
+                {isOwner && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href={`/jobs/${job.id}/edit`}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {job.description && (
+          <p className="text-sm text-muted-foreground line-clamp-2">{job.description}</p>
+        )}
+
+        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+          {job.location && (
+            <div className="flex items-center gap-1">
+              <MapPin className="h-4 w-4 text-accent" />
+              {job.location}
+            </div>
+          )}
+          {job.salary && (
+            <div className="flex items-center gap-1">
+              <DollarSign className="h-4 w-4 text-accent" />
+              {job.salary}
+            </div>
+          )}
+          {job.deadline && (
+            <div className={cn("flex items-center gap-1", isDeadlinePassed && "text-destructive")}>
+              <Clock className="h-4 w-4" />
+              {isDeadlinePassed ? "Deadline passed" : `Apply by ${new Date(job.deadline).toLocaleDateString()}`}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" asChild>
+            <Link href={`/jobs/${job.id}`}>View Details</Link>
+          </Button>
+
+          {canApply && (
+            <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid={`button-apply-${job.id}`}>
+                  <Send className="h-4 w-4 mr-2" />
+                  Apply
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-xl">
+                    <Briefcase className="h-5 w-5 text-accent" />
+                    Apply for {job.title}
+                  </DialogTitle>
+                  <DialogDescription>at {job.company}</DialogDescription>
+                </DialogHeader>
+
+                <form onSubmit={handleApply} className="space-y-6 mt-4">
+                  <div className="bg-secondary/50 rounded-lg p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                          <User className="h-5 w-5 text-accent" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Use ArchNet Profile</p>
+                          <p className="text-sm text-muted-foreground">Share your profile info automatically</p>
+                        </div>
+                      </div>
+                      <Switch checked={useArchNetProfile} onCheckedChange={setUseArchNetProfile} />
+                    </div>
+
+                    {useArchNetProfile && user && (
+                      <div className="border rounded-lg p-4 bg-background space-y-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage src={user.avatar || ""} />
+                            <AvatarFallback>{user.name?.[0]}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{user.name}</p>
+                            <p className="text-sm text-muted-foreground">{user.title || user.role}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 text-sm">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Mail className="h-4 w-4" />
+                            {user.email}
+                          </div>
+                          {user.phone && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Phone className="h-4 w-4" />
+                              {user.phone}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {!useArchNetProfile && (
+                      <div className="space-y-4 border rounded-lg p-4 bg-background">
+                        <div className="space-y-2">
+                          <Label htmlFor={`email-${job.id}`}>Email Address *</Label>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                            <Input
+                              id={`email-${job.id}`}
+                              type="email"
+                              placeholder="your@email.com"
+                              className="pl-10"
+                              value={customEmail}
+                              onChange={(e) => setCustomEmail(e.target.value)}
+                              required={!useArchNetProfile}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`phone-${job.id}`}>Phone Number</Label>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                            <Input
+                              id={`phone-${job.id}`}
+                              type="tel"
+                              placeholder="+962 7XX XXX XXX"
+                              className="pl-10"
+                              value={customPhone}
+                              onChange={(e) => setCustomPhone(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`cover-${job.id}`}>Cover Letter / Message</Label>
+                    <Textarea
+                      id={`cover-${job.id}`}
+                      placeholder="Tell the employer why you're a great fit..."
+                      className="min-h-[100px]"
+                      value={coverLetter}
+                      onChange={(e) => setCoverLetter(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label className="text-base font-medium">Additional Links (Optional)</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor={`portfolio-${job.id}`} className="text-sm">Portfolio URL</Label>
+                      <div className="relative">
+                        <LinkIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                        <Input
+                          id={`portfolio-${job.id}`}
+                          type="url"
+                          placeholder="https://yourportfolio.com"
+                          className="pl-10"
+                          value={portfolioUrl}
+                          onChange={(e) => setPortfolioUrl(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`resume-${job.id}`} className="text-sm">Resume / CV URL</Label>
+                      <div className="relative">
+                        <FileText className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                        <Input
+                          id={`resume-${job.id}`}
+                          type="url"
+                          placeholder="https://drive.google.com/your-cv"
+                          className="pl-10"
+                          value={resumeUrl}
+                          onChange={(e) => setResumeUrl(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button type="button" variant="outline" onClick={() => setApplyDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={applyMutation.isPending}>
+                      {applyMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 h-4 w-4" />
+                          Submit Application
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {hasApplied && (
+            <Button variant="secondary" disabled>
+              Applied
+            </Button>
+          )}
+
+          {job.applicationUrl && (
+            <Button variant="outline" size="icon" asChild title="Apply on company site">
+              <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </Button>
+          )}
+
+          {isAuthenticated && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              title={isSaved ? "Unsave" : "Save"}
+            >
+              <Bookmark className={cn("h-4 w-4", isSaved && "fill-current text-accent")} />
+            </Button>
+          )}
+
+          <Button variant="ghost" size="icon" onClick={handleShare} title="Share">
+            <Share2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Job Listing?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{job.title}". This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteMutation.mutate()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
   );
 }
