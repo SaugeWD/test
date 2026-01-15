@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams, Link, useLocation } from "wouter";
+import { useParams, Link, useLocation, useSearch } from "wouter";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -11,13 +11,14 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   ArrowLeft, Loader2, Briefcase, MapPin, Clock, DollarSign, 
   Building2, Calendar, ExternalLink, Share2, Bookmark, 
   CheckCircle, Target, Award, GraduationCap, Timer, Send,
-  User, Mail, Phone, Link as LinkIcon, FileText, CheckCircle2
+  User, Mail, Phone, Link as LinkIcon, FileText, CheckCircle2,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -33,10 +34,13 @@ interface JobWithPoster extends Job {
 export default function JobDetails() {
   const { id } = useParams();
   const [, navigate] = useLocation();
+  const searchString = useSearch();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
-  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const searchParams = new URLSearchParams(searchString);
+  const showApplyForm = searchParams.get("apply") === "true";
+
   const [useArchNetProfile, setUseArchNetProfile] = useState(true);
   const [coverLetter, setCoverLetter] = useState("");
   const [customEmail, setCustomEmail] = useState("");
@@ -103,7 +107,7 @@ export default function JobDetails() {
         title: "Application Submitted!",
         description: "Your application has been sent to the employer." 
       });
-      setApplyDialogOpen(false);
+      navigate(`/jobs/${id}`);
       resetApplyForm();
     },
     onError: (error: any) => {
@@ -359,224 +363,181 @@ export default function JobDetails() {
               </div>
             </div>
 
-            <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              {canApply && (
-                <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="lg" className="flex-1 sm:flex-none" data-testid="button-apply-now">
+            {!showApplyForm && (
+              <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                {canApply && (
+                  <Button size="lg" asChild className="flex-1 sm:flex-none" data-testid="button-apply-now">
+                    <Link href={`/jobs/${id}?apply=true`}>
                       <Send className="mr-2 h-5 w-5" />
                       Apply Now
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2 text-xl">
-                        <Briefcase className="h-5 w-5 text-accent" />
-                        Apply for {job.title}
-                      </DialogTitle>
-                      <DialogDescription>
-                        at {job.company}
-                      </DialogDescription>
-                    </DialogHeader>
+                    </Link>
+                  </Button>
+                )}
 
-                    <form onSubmit={handleApply} className="space-y-6 mt-4">
-                      <div className="bg-secondary/50 rounded-lg p-4 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                              <User className="h-5 w-5 text-accent" />
-                            </div>
-                            <div>
-                              <p className="font-medium">Use ArchNet Profile</p>
-                              <p className="text-sm text-muted-foreground">
-                                Share your profile info automatically
-                              </p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={useArchNetProfile}
-                            onCheckedChange={setUseArchNetProfile}
-                            data-testid="switch-use-profile"
-                          />
-                        </div>
+                {hasApplied && (
+                  <Button size="lg" variant="secondary" disabled className="flex-1 sm:flex-none">
+                    <CheckCircle2 className="mr-2 h-5 w-5" />
+                    Application Submitted
+                  </Button>
+                )}
 
-                        {useArchNetProfile && user && (
-                          <div className="border rounded-lg p-4 bg-background space-y-3">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-12 w-12">
-                                <AvatarImage src={user.avatar || ""} />
-                                <AvatarFallback>{user.name?.[0]}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{user.name}</p>
-                                <p className="text-sm text-muted-foreground">{user.title || user.role}</p>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-2 text-sm">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Mail className="h-4 w-4" />
-                                {user.email}
-                              </div>
-                              {user.phone && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <Phone className="h-4 w-4" />
-                                  {user.phone}
-                                </div>
-                              )}
-                              {user.location && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <MapPin className="h-4 w-4" />
-                                  {user.location}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                {job.applicationUrl && !hasApplied && (
+                  <Button size="lg" variant="outline" asChild className="flex-1 sm:flex-none">
+                    <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="mr-2 h-5 w-5" />
+                      Apply on Company Site
+                    </a>
+                  </Button>
+                )}
 
-                        {!useArchNetProfile && (
-                          <div className="space-y-4 border rounded-lg p-4 bg-background">
-                            <div className="space-y-2">
-                              <Label htmlFor="customEmail">Email Address *</Label>
-                              <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                                <Input
-                                  id="customEmail"
-                                  type="email"
-                                  placeholder="your@email.com"
-                                  className="pl-10"
-                                  value={customEmail}
-                                  onChange={(e) => setCustomEmail(e.target.value)}
-                                  required={!useArchNetProfile}
-                                  data-testid="input-custom-email"
-                                />
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="customPhone">Phone Number</Label>
-                              <div className="relative">
-                                <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                                <Input
-                                  id="customPhone"
-                                  type="tel"
-                                  placeholder="+962 7XX XXX XXX"
-                                  className="pl-10"
-                                  value={customPhone}
-                                  onChange={(e) => setCustomPhone(e.target.value)}
-                                  data-testid="input-custom-phone"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="coverLetter">
-                          Cover Letter / Message
-                        </Label>
-                        <Textarea
-                          id="coverLetter"
-                          placeholder="Tell the employer why you're a great fit for this position, your relevant experience, and what excites you about this opportunity..."
-                          className="min-h-[120px]"
-                          value={coverLetter}
-                          onChange={(e) => setCoverLetter(e.target.value)}
-                          data-testid="textarea-cover-letter"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          A thoughtful message can make your application stand out
-                        </p>
-                      </div>
-
-                      <div className="space-y-4">
-                        <Label className="text-base font-medium">Additional Links (Optional)</Label>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="portfolioUrl" className="text-sm">Portfolio URL</Label>
-                          <div className="relative">
-                            <LinkIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                            <Input
-                              id="portfolioUrl"
-                              type="url"
-                              placeholder="https://yourportfolio.com"
-                              className="pl-10"
-                              value={portfolioUrl}
-                              onChange={(e) => setPortfolioUrl(e.target.value)}
-                              data-testid="input-portfolio-url"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="resumeUrl" className="text-sm">Resume / CV URL</Label>
-                          <div className="relative">
-                            <FileText className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                            <Input
-                              id="resumeUrl"
-                              type="url"
-                              placeholder="https://drive.google.com/your-cv"
-                              className="pl-10"
-                              value={resumeUrl}
-                              onChange={(e) => setResumeUrl(e.target.value)}
-                              data-testid="input-resume-url"
-                            />
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Link to your CV on Google Drive, Dropbox, or any other cloud storage
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end gap-3 pt-4 border-t">
-                        <Button type="button" variant="outline" onClick={() => setApplyDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button type="submit" disabled={applyMutation.isPending} data-testid="button-submit-application">
-                          {applyMutation.isPending ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Submitting...
-                            </>
-                          ) : (
-                            <>
-                              <Send className="mr-2 h-4 w-4" />
-                              Submit Application
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              )}
-
-              {hasApplied && (
-                <Button size="lg" variant="secondary" disabled className="flex-1 sm:flex-none">
-                  <CheckCircle2 className="mr-2 h-5 w-5" />
-                  Application Submitted
-                </Button>
-              )}
-
-              {job.applicationUrl && !hasApplied && (
-                <Button size="lg" variant="outline" asChild className="flex-1 sm:flex-none">
-                  <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="mr-2 h-5 w-5" />
-                    Apply on Company Site
-                  </a>
-                </Button>
-              )}
-
-              {!isAuthenticated && !isDeadlinePassed && job.isActive !== false && (
-                <Button size="lg" asChild className="flex-1 sm:flex-none">
-                  <Link href="/login">
-                    <Send className="mr-2 h-5 w-5" />
-                    Login to Apply
-                  </Link>
-                </Button>
-              )}
-            </div>
+                {!isAuthenticated && !isDeadlinePassed && job.isActive !== false && (
+                  <Button size="lg" asChild className="flex-1 sm:flex-none">
+                    <Link href="/login">
+                      <Send className="mr-2 h-5 w-5" />
+                      Login to Apply
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
+
+      {showApplyForm && canApply && (
+        <section className="py-10 bg-secondary/30">
+          <div className="container mx-auto px-4">
+            <div className="max-w-2xl mx-auto">
+              <Card>
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                      <Send className="h-5 w-5 text-accent" />
+                    </div>
+                    Apply for {job.title}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Submit your application using your ArchNet profile. Your profile information will be shared with the employer.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleApply} className="space-y-6">
+                    <div className="flex items-center space-x-3">
+                      <Checkbox 
+                        id="useProfile" 
+                        checked={useArchNetProfile}
+                        onCheckedChange={(checked) => setUseArchNetProfile(checked as boolean)}
+                        data-testid="checkbox-use-profile"
+                      />
+                      <Label htmlFor="useProfile" className="text-base font-medium cursor-pointer">
+                        Use my ArchNet profile information
+                      </Label>
+                    </div>
+
+                    {useArchNetProfile && (
+                      <div className="bg-accent/5 rounded-lg p-4 border border-accent/10">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                            <ClipboardList className="h-5 w-5 text-accent" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-accent mb-2">Your profile will include:</p>
+                            <ul className="space-y-1.5 text-sm text-muted-foreground">
+                              <li className="flex items-center gap-2">
+                                <span className="text-accent">•</span>
+                                Name and contact information
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className="text-accent">•</span>
+                                Professional title and bio
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className="text-accent">•</span>
+                                Portfolio and projects
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className="text-accent">•</span>
+                                Education and experience
+                              </li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!useArchNetProfile && (
+                      <div className="space-y-4 bg-secondary/50 rounded-lg p-4">
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Enter your contact information manually:
+                        </p>
+                        <div className="space-y-2">
+                          <Label htmlFor="customEmail">Email Address *</Label>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                            <Input
+                              id="customEmail"
+                              type="email"
+                              placeholder="your@email.com"
+                              className="pl-10"
+                              value={customEmail}
+                              onChange={(e) => setCustomEmail(e.target.value)}
+                              required={!useArchNetProfile}
+                              data-testid="input-custom-email"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="customPhone">Phone Number</Label>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                            <Input
+                              id="customPhone"
+                              type="tel"
+                              placeholder="+962 7XX XXX XXX"
+                              className="pl-10"
+                              value={customPhone}
+                              onChange={(e) => setCustomPhone(e.target.value)}
+                              data-testid="input-custom-phone"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="coverLetter">Cover Letter (Optional)</Label>
+                      <Textarea
+                        id="coverLetter"
+                        placeholder="Tell the employer why you're a great fit for this position..."
+                        className="min-h-[100px]"
+                        value={coverLetter}
+                        onChange={(e) => setCoverLetter(e.target.value)}
+                        data-testid="textarea-cover-letter"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4 border-t">
+                      <Button type="button" variant="outline" asChild>
+                        <Link href={`/jobs/${id}`}>Cancel</Link>
+                      </Button>
+                      <Button type="submit" disabled={applyMutation.isPending} data-testid="button-submit-application">
+                        {applyMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          "Submit Application"
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="py-10">
         <div className="container mx-auto px-4">
@@ -772,9 +733,11 @@ export default function JobDetails() {
                             Take the next step in your architecture career
                           </p>
                         </div>
-                        <Button className="w-full" size="lg" onClick={() => setApplyDialogOpen(true)} data-testid="button-apply-cta">
-                          <Send className="mr-2 h-4 w-4" />
-                          Apply for This Position
+                        <Button className="w-full" size="lg" asChild data-testid="button-apply-cta">
+                          <Link href={`/jobs/${id}?apply=true`}>
+                            <Send className="mr-2 h-4 w-4" />
+                            Apply for This Position
+                          </Link>
                         </Button>
                       </div>
                     </CardContent>
