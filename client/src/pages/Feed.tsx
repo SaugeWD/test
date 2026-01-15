@@ -34,6 +34,13 @@ import {
   ChevronDown,
   Link2,
   Loader2,
+  Briefcase,
+  BookOpen,
+  Newspaper,
+  Calendar,
+  MapPin,
+  DollarSign,
+  GraduationCap,
 } from "lucide-react";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { useAuth } from "@/context/AuthContext";
@@ -62,8 +69,9 @@ interface CommentDisplay {
 
 interface FeedPost {
   id: string;
-  type: "text" | "project" | "competition";
-  author: Author;
+  feedType: "post" | "project" | "research" | "news" | "job" | "competition";
+  type: string;
+  author: Author | { name: string } | null;
   content: string;
   title?: string;
   images?: string[];
@@ -73,6 +81,15 @@ interface FeedPost {
   timestamp: string;
   tags: string[];
   postComments: CommentDisplay[];
+  category?: string;
+  location?: string;
+  company?: string;
+  deadline?: string;
+  prize?: string;
+  university?: string;
+  isEvent?: boolean;
+  eventDate?: string;
+  eventLocation?: string;
 }
 
 function CreatePostDialog() {
@@ -96,6 +113,7 @@ function CreatePostDialog() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       setIsOpen(false);
       setContent("");
       setProjectTitle("");
@@ -386,36 +404,96 @@ function PostCard({ post }: { post: FeedPost }) {
     ? localComments
     : localComments.slice(0, 2);
 
+  const getFeedTypeIcon = () => {
+    switch (post.feedType) {
+      case "project": return <Building2 className="h-3 w-3 mr-1" />;
+      case "research": return <BookOpen className="h-3 w-3 mr-1" />;
+      case "news": return <Newspaper className="h-3 w-3 mr-1" />;
+      case "job": return <Briefcase className="h-3 w-3 mr-1" />;
+      case "competition": return <Trophy className="h-3 w-3 mr-1" />;
+      default: return <FileText className="h-3 w-3 mr-1" />;
+    }
+  };
+
+  const getFeedTypeLabel = () => {
+    switch (post.feedType) {
+      case "project": return "Project";
+      case "research": return "Research";
+      case "news": return post.isEvent ? "Event" : "News";
+      case "job": return "Job";
+      case "competition": return "Competition";
+      default: return post.type || "Post";
+    }
+  };
+
+  const getFeedTypeVariant = (): "default" | "secondary" | "outline" | "destructive" => {
+    switch (post.feedType) {
+      case "competition": return "default";
+      case "job": return "default";
+      case "research": return "secondary";
+      case "project": return "secondary";
+      case "news": return "outline";
+      default: return "outline";
+    }
+  };
+
+  const getDetailLink = () => {
+    switch (post.feedType) {
+      case "project": return `/projects/${post.id}`;
+      case "research": return `/research/${post.id}`;
+      case "news": return `/news/${post.id}`;
+      case "job": return `/jobs/${post.id}`;
+      case "competition": return `/competitions/${post.id}`;
+      default: return null;
+    }
+  };
+
+  const author = post.author && 'username' in post.author ? post.author : null;
+  const authorName = post.author?.name || "Unknown";
+
   return (
     <Card data-testid={`card-post-${post.id}`}>
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
-          <Link href={`/profile/${post.author.username}`}>
-            <div className="flex gap-3 cursor-pointer">
-              <Avatar className="h-12 w-12 hover:ring-2 hover:ring-accent transition-all">
-                <AvatarImage src={post.author.avatar} />
-                <AvatarFallback>{post.author.name[0]}</AvatarFallback>
+          {author ? (
+            <Link href={`/profile/${author.username}`}>
+              <div className="flex gap-3 cursor-pointer">
+                <Avatar className="h-12 w-12 hover:ring-2 hover:ring-accent transition-all">
+                  <AvatarImage src={author.avatar} />
+                  <AvatarFallback>{authorName[0]}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold hover:text-accent transition-colors">
+                      {authorName}
+                    </span>
+                    {author.isVerified && (
+                      <VerificationBadge
+                        type={author.verificationType}
+                        size="sm"
+                      />
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{author.title}</p>
+                  <p className="text-xs text-muted-foreground">{post.timestamp}</p>
+                </div>
+              </div>
+            </Link>
+          ) : (
+            <div className="flex gap-3">
+              <Avatar className="h-12 w-12">
+                <AvatarFallback>{authorName[0]}</AvatarFallback>
               </Avatar>
               <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold hover:text-accent transition-colors">
-                    {post.author.name}
-                  </span>
-                  {post.author.isVerified && (
-                    <VerificationBadge
-                      type={post.author.verificationType}
-                      size="sm"
-                    />
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground">{post.author.title}</p>
+                <span className="font-semibold">{authorName}</span>
                 <p className="text-xs text-muted-foreground">{post.timestamp}</p>
               </div>
             </div>
-          </Link>
+          )}
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="capitalize">
-              {post.type}
+            <Badge variant={getFeedTypeVariant()} className="capitalize">
+              {getFeedTypeIcon()}
+              {getFeedTypeLabel()}
             </Badge>
             <Button variant="ghost" size="icon" data-testid={`button-more-${post.id}`}>
               <MoreHorizontal className="h-5 w-5" />
@@ -427,12 +505,63 @@ function PostCard({ post }: { post: FeedPost }) {
       <CardContent className="space-y-4">
         {post.title && (
           <h3 className="font-semibold text-lg" data-testid={`text-title-${post.id}`}>
-            {post.title}
+            {getDetailLink() ? (
+              <Link href={getDetailLink()!} className="hover:text-accent transition-colors">
+                {post.title}
+              </Link>
+            ) : post.title}
           </h3>
         )}
         <p className="text-sm leading-relaxed" data-testid={`text-content-${post.id}`}>
-          {post.content}
+          {post.content?.length > 300 ? `${post.content.substring(0, 300)}...` : post.content}
         </p>
+
+        {(post.location || post.company || post.deadline || post.prize || post.university || post.eventLocation || post.eventDate) && (
+          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+            {post.company && (
+              <span className="flex items-center gap-1">
+                <Building2 className="h-4 w-4" />
+                {post.company}
+              </span>
+            )}
+            {post.location && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                {post.location}
+              </span>
+            )}
+            {post.university && (
+              <span className="flex items-center gap-1">
+                <GraduationCap className="h-4 w-4" />
+                {post.university}
+              </span>
+            )}
+            {post.deadline && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                Deadline: {new Date(post.deadline).toLocaleDateString()}
+              </span>
+            )}
+            {post.prize && (
+              <span className="flex items-center gap-1">
+                <DollarSign className="h-4 w-4" />
+                {post.prize}
+              </span>
+            )}
+            {post.eventDate && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                {new Date(post.eventDate).toLocaleDateString()}
+              </span>
+            )}
+            {post.eventLocation && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                {post.eventLocation}
+              </span>
+            )}
+          </div>
+        )}
 
         {post.images && post.images.length > 0 && (
           <div
@@ -783,29 +912,66 @@ async function transformPostToFeedPost(post: Post, userCache: Map<string, User>)
   }
 }
 
+interface UnifiedFeedItem {
+  id: string;
+  feedType: "post" | "project" | "research" | "news" | "job" | "competition";
+  type: string;
+  title?: string;
+  content: string;
+  images?: string[];
+  tags?: string[];
+  category?: string;
+  createdAt: string;
+  author: { id?: string; name: string; username?: string; avatar?: string; isVerified?: boolean; verificationType?: string } | null;
+  likesCount: number;
+  commentsCount: number;
+  location?: string;
+  company?: string;
+  deadline?: string;
+  prize?: string;
+  university?: string;
+  isEvent?: boolean;
+  eventDate?: string;
+  eventLocation?: string;
+}
+
 export default function FeedPage() {
   const [activeTab, setActiveTab] = useState("all");
-  const [userCache] = useState(() => new Map<string, User>());
 
-  const { data: apiPosts = [], isLoading } = useQuery<Post[]>({
-    queryKey: ["/api/posts"],
+  const { data: feedItems = [], isLoading } = useQuery<UnifiedFeedItem[]>({
+    queryKey: ["/api/feed"],
   });
 
-  const [displayPosts, setDisplayPosts] = useState<FeedPost[]>([]);
-
-  useEffect(() => {
-    const loadPosts = async () => {
-      if (apiPosts.length > 0) {
-        const transformed = await Promise.all(
-          apiPosts.map((post) => transformPostToFeedPost(post, userCache))
-        );
-        setDisplayPosts(transformed.filter((p): p is FeedPost => p !== null));
-      } else {
-        setDisplayPosts([]);
-      }
-    };
-    loadPosts();
-  }, [apiPosts, userCache]);
+  const displayPosts: FeedPost[] = feedItems.map((item) => ({
+    id: item.id,
+    feedType: item.feedType,
+    type: item.type || "text",
+    author: item.author ? {
+      name: item.author.name,
+      title: "",
+      avatar: item.author.avatar || "/placeholder-user.jpg",
+      username: item.author.username || "",
+      isVerified: item.author.isVerified || false,
+      verificationType: item.author.verificationType as "architect" | "educator" | "firm" | undefined,
+    } : { name: "Unknown" },
+    content: item.content || "",
+    title: item.title,
+    images: item.images || [],
+    likes: item.likesCount || 0,
+    comments: item.commentsCount || 0,
+    timestamp: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "just now",
+    tags: item.tags || [],
+    postComments: [],
+    category: item.category,
+    location: item.location,
+    company: item.company,
+    deadline: item.deadline,
+    prize: item.prize,
+    university: item.university,
+    isEvent: item.isEvent,
+    eventDate: item.eventDate,
+    eventLocation: item.eventLocation,
+  }));
 
   return (
     <div className="min-h-screen">
