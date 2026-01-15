@@ -539,33 +539,29 @@ function JobCard({ job, user, toast, getTypeColor, formatPostedDate }: JobCardPr
 
   return (
     <Card className="hover-elevate" data-testid={`card-job-${job.id}`}>
-      <CardHeader>
+      <CardContent className="p-6 space-y-4">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap mb-2">
-              <CardTitle className="text-xl">{job.title}</CardTitle>
-              {job.type && (
-                <Link href={`/jobs?type=${job.type}`} onClick={(e) => e.stopPropagation()}>
-                  <Badge className={`border-0 cursor-pointer hover:opacity-80 transition-opacity ${getTypeColor(job.type)}`}>
-                    {job.type}
-                  </Badge>
-                </Link>
-              )}
-              {hasApplied && (
-                <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
-                  Applied
+          <div className="flex items-center gap-2 flex-wrap">
+            {job.type && (
+              <Link href={`/jobs?type=${job.type}`} onClick={(e) => e.stopPropagation()}>
+                <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity">
+                  {job.type}
                 </Badge>
-              )}
-            </div>
-            <CardDescription className="flex items-center gap-1">
-              <Building className="h-4 w-4" />
-              {job.company}
-            </CardDescription>
+              </Link>
+            )}
+            {hasApplied && (
+              <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                Applied
+              </Badge>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {formatPostedDate(job.createdAt)}
-            </span>
+
+          <div className="flex items-center gap-3">
+            {job.salary && (
+              <div className="text-right">
+                <p className="text-accent font-medium">{job.salary}</p>
+              </div>
+            )}
             {isOwner && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -592,38 +588,53 @@ function JobCard({ job, user, toast, getTypeColor, formatPostedDate }: JobCardPr
             )}
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+
+        <div>
+          <h3 className="text-xl font-semibold mb-2">{job.title}</h3>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <Building className="h-4 w-4" />
+              {job.company}
+            </div>
+            {job.location && (
+              <div className="flex items-center gap-1.5">
+                <MapPin className="h-4 w-4" />
+                {job.location}
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4" />
+              {formatPostedDate(job.createdAt)}
+            </div>
+          </div>
+        </div>
+
         {job.description && (
           <p className="text-sm text-muted-foreground line-clamp-2">{job.description}</p>
         )}
 
-        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-          {job.location && (
-            <div className="flex items-center gap-1">
-              <MapPin className="h-4 w-4 text-accent" />
-              {job.location}
-            </div>
-          )}
-          {job.salary && (
-            <div className="flex items-center gap-1">
-              <DollarSign className="h-4 w-4 text-accent" />
-              {job.salary}
-            </div>
-          )}
-          {job.deadline && (
-            <div className={cn("flex items-center gap-1", isDeadlinePassed && "text-destructive")}>
-              <Clock className="h-4 w-4" />
-              {isDeadlinePassed ? "Deadline passed" : `Apply by ${new Date(job.deadline).toLocaleDateString()}`}
-            </div>
-          )}
-        </div>
+        {job.requirements && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Requirements:</p>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              {job.requirements.split('\n').slice(0, 3).filter(r => r.trim()).map((req, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="text-accent mt-1.5">•</span>
+                  <span>{req}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" asChild>
-            <Link href={`/jobs/${job.id}`}>View Details</Link>
-          </Button>
+        {job.deadline && isDeadlinePassed && (
+          <div className="flex items-center gap-1.5 text-sm text-destructive">
+            <Clock className="h-4 w-4" />
+            Deadline passed
+          </div>
+        )}
 
+        <div className="flex items-center gap-3 pt-2">
           {canApply && (
             <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
               <DialogTrigger asChild>
@@ -790,28 +801,8 @@ function JobCard({ job, user, toast, getTypeColor, formatPostedDate }: JobCardPr
             </Button>
           )}
 
-          {job.applicationUrl && (
-            <Button variant="outline" size="icon" asChild title="Apply on company site">
-              <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            </Button>
-          )}
-
-          {isAuthenticated && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              title={isSaved ? "Unsave" : "Save"}
-            >
-              <Bookmark className={cn("h-4 w-4", isSaved && "fill-current text-accent")} />
-            </Button>
-          )}
-
-          <Button variant="ghost" size="icon" onClick={handleShare} title="Share">
-            <Share2 className="h-4 w-4" />
+          <Button variant="outline" asChild>
+            <Link href={`/jobs/${job.id}`}>View Details</Link>
           </Button>
         </div>
       </CardContent>
