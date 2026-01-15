@@ -1550,19 +1550,13 @@ export default function NewsPage() {
                         </div>
                       </CardHeader>
                       <CardContent className="pt-0 mt-auto">
-                        <div className="pt-4 border-t flex items-center justify-between gap-2">
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <SocialInteractions
-                              contentId={`news-${item.id}`}
-                              contentType="news"
-                              initialLikes={Math.floor(Math.random() * 100)}
-                              initialComments={Math.floor(Math.random() * 20)}
-                            />
-                          </div>
-                          <Button variant="ghost" size="sm" data-testid={`button-read-more-${item.id}`}>
-                            Read More
-                            <ArrowRight className="ml-1 h-4 w-4" />
-                          </Button>
+                        <div className="pt-4 border-t" onClick={(e) => e.stopPropagation()}>
+                          <SocialInteractions
+                            contentId={`news-${item.id}`}
+                            contentType="news"
+                            initialLikes={Math.floor(Math.random() * 100)}
+                            initialComments={Math.floor(Math.random() * 20)}
+                          />
                         </div>
                       </CardContent>
                       <style>{`
