@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { registerSchema, loginSchema, insertPostSchema, insertProjectSchema, insertCommentSchema, insertResearchSchema, insertNewsSchema, insertReportSchema, projects, research, news, users, posts, competitions, jobs } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 const JWT_SECRET = process.env.SESSION_SECRET || "archnet-jordan-secret-key";
@@ -410,6 +410,28 @@ export async function registerRoutes(app: Express): Promise<void> {
       res.json(comments);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch user comments" });
+    }
+  });
+
+  // Get user's news
+  app.get("/api/users/:id/news", optionalAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.params.id;
+      const isOwner = req.user?.id === userId;
+      
+      let whereClause;
+      if (isOwner) {
+        // Owner can see all their news regardless of status
+        whereClause = eq(news.submittedById, userId);
+      } else {
+        // Non-owners can only see approved news
+        whereClause = and(eq(news.submittedById, userId), eq(news.status, "approved"));
+      }
+      
+      const userNews = await db.select().from(news).where(whereClause).orderBy(sql`${news.createdAt} DESC`);
+      res.json(userNews);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch user news" });
     }
   });
 

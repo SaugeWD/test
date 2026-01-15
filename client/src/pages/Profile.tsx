@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Calendar, Briefcase, Users, BookOpen, Folder, Settings, UserPlus, MessageSquare, Loader2, Heart, MessageCircle, FileText, Check, X, Clock, Bookmark, ExternalLink, Trash2, Trophy, MoreHorizontal } from "lucide-react";
+import { MapPin, Calendar, Briefcase, Users, BookOpen, Folder, Settings, UserPlus, MessageSquare, Loader2, Heart, MessageCircle, FileText, Check, X, Clock, Bookmark, ExternalLink, Trash2, Trophy, MoreHorizontal, Newspaper } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useState } from "react";
@@ -15,7 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useParams } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { User, Project, Post, Follow, SavedItem, Like, Comment, Book, Competition, Research } from "@shared/schema";
+import type { User, Project, Post, Follow, SavedItem, Like, Comment, Book, Competition, Research, News } from "@shared/schema";
 import { SocialInteractions } from "@/components/SocialInteractions";
 
 function SavedItemCard({ item }: { item: SavedItem }) {
@@ -309,6 +309,11 @@ export default function ProfilePage() {
 
   const { data: userResearch, isLoading: researchLoading } = useQuery<Research[]>({
     queryKey: ["/api/users", userId, "research"],
+    enabled: !!userId,
+  });
+
+  const { data: userNews = [], isLoading: isLoadingNews } = useQuery<News[]>({
+    queryKey: [`/api/users/${userId}/news`],
     enabled: !!userId,
   });
 
@@ -617,6 +622,10 @@ export default function ProfilePage() {
                     <FileText className="mr-2 h-4 w-4" />
                     Research
                   </TabsTrigger>
+                  <TabsTrigger value="news" data-testid="tab-news">
+                    <Newspaper className="mr-2 h-4 w-4" />
+                    News
+                  </TabsTrigger>
                   <TabsTrigger value="activity" data-testid="tab-activity">
                     <Briefcase className="mr-2 h-4 w-4" />
                     Activity
@@ -891,6 +900,73 @@ export default function ProfilePage() {
                       </Card>
                     )}
                   </div>
+                </TabsContent>
+
+                <TabsContent value="news">
+                  {isLoadingNews ? (
+                    <div className="flex justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : !userNews || userNews.length === 0 ? (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <Newspaper className="mx-auto h-12 w-12 text-muted-foreground" />
+                        <p className="mt-4 text-muted-foreground">No news or events submitted yet.</p>
+                        {isOwnProfile && (
+                          <Button variant="outline" className="mt-4" asChild>
+                            <Link href="/news">Submit News or Event</Link>
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-4">
+                      {userNews.map((newsItem) => (
+                        <Link key={newsItem.id} href={`/news/${newsItem.id}`} className="block">
+                          <Card className="overflow-hidden hover-elevate cursor-pointer" data-testid={`card-news-${newsItem.id}`}>
+                            <div className="flex">
+                              <div className="shrink-0 w-24 h-24 bg-muted overflow-hidden flex items-center justify-center">
+                                {newsItem.images && newsItem.images.length > 0 ? (
+                                  <img src={newsItem.images[0]} alt={newsItem.title} className="h-full w-full object-cover" />
+                                ) : (
+                                  <Newspaper className="h-8 w-8 text-muted-foreground" />
+                                )}
+                              </div>
+                              <CardContent className="p-4 flex-1">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  {newsItem.category && (
+                                    <Badge variant="outline" className="text-xs">{newsItem.category}</Badge>
+                                  )}
+                                  <Badge 
+                                    variant={newsItem.status === "approved" ? "default" : "secondary"} 
+                                    className="text-xs"
+                                  >
+                                    {newsItem.status === "approved" ? (
+                                      <><Check className="h-3 w-3 mr-1" />Approved</>
+                                    ) : newsItem.status === "rejected" ? (
+                                      <><X className="h-3 w-3 mr-1" />Rejected</>
+                                    ) : (
+                                      <><Clock className="h-3 w-3 mr-1" />Pending</>
+                                    )}
+                                  </Badge>
+                                  {newsItem.isEvent && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      <Calendar className="h-3 w-3 mr-1" />
+                                      Event
+                                    </Badge>
+                                  )}
+                                </div>
+                                <h3 className="font-semibold text-sm line-clamp-1">{newsItem.title}</h3>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {newsItem.createdAt && new Date(newsItem.createdAt).toLocaleDateString()}
+                                </p>
+                              </CardContent>
+                            </div>
+                          </Card>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </div>

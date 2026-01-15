@@ -23,6 +23,7 @@ import ResearchPage from "@/pages/Research";
 import ResearchDetailPage from "@/pages/ResearchDetail";
 import ToolsPage from "@/pages/Tools";
 import NewsPage from "@/pages/News";
+import NewsDetailPage from "@/pages/NewsDetail";
 import CommunityPage from "@/pages/Community";
 import UniversityDetailPage from "@/pages/UniversityDetail";
 import AboutPage from "@/pages/About";
@@ -65,6 +66,7 @@ function Router() {
       <Route path="/research/:id" component={ResearchDetailPage} />
       <Route path="/tools" component={ToolsPage} />
       <Route path="/news" component={NewsPage} />
+      <Route path="/news/:id" component={NewsDetailPage} />
       <Route path="/community" component={CommunityPage} />
       <Route path="/community/university/:id" component={UniversityDetailPage} />
       <Route path="/about" component={AboutPage} />
