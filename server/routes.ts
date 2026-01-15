@@ -1830,10 +1830,10 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.post("/api/messages", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const { receiverId, content } = req.body;
+      const { receiverId, content, replyToId, attachments } = req.body;
       
-      if (!receiverId || !content) {
-        return res.status(400).json({ message: "receiverId and content are required" });
+      if (!receiverId || (!content && (!attachments || attachments.length === 0))) {
+        return res.status(400).json({ message: "receiverId and content or attachments are required" });
       }
 
       const isBlockedByReceiver = await storage.isBlocked(receiverId, req.user!.id);
@@ -1849,7 +1849,9 @@ export async function registerRoutes(app: Express): Promise<void> {
       const message = await storage.createMessage({
         senderId: req.user!.id,
         receiverId,
-        content,
+        content: content || "",
+        replyToId: replyToId || null,
+        attachments: attachments || null,
       });
       res.status(201).json(message);
     } catch (error) {
@@ -1863,6 +1865,53 @@ export async function registerRoutes(app: Express): Promise<void> {
       res.json({ message: "Message marked as read" });
     } catch (error) {
       res.status(500).json({ message: "Failed to mark message as read" });
+    }
+  });
+
+  app.patch("/api/messages/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { content } = req.body;
+      const messageId = req.params.id;
+      
+      const existingMessage = await storage.getMessage(messageId);
+      if (!existingMessage) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      
+      if (existingMessage.senderId !== req.user!.id) {
+        return res.status(403).json({ message: "You can only edit your own messages" });
+      }
+      
+      const updatedMessage = await storage.updateMessage(messageId, { 
+        content, 
+        isEdited: true 
+      });
+      res.json(updatedMessage);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to edit message" });
+    }
+  });
+
+  app.delete("/api/messages/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const messageId = req.params.id;
+      
+      const existingMessage = await storage.getMessage(messageId);
+      if (!existingMessage) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      
+      if (existingMessage.senderId !== req.user!.id) {
+        return res.status(403).json({ message: "You can only delete your own messages" });
+      }
+      
+      await storage.updateMessage(messageId, { 
+        isDeleted: true,
+        content: "This message was deleted"
+      });
+      res.json({ message: "Message deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete message" });
     }
   });
 

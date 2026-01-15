@@ -97,8 +97,10 @@ export interface IStorage {
 
   // Messages
   getMessages(userId: string): Promise<Message[]>;
+  getMessage(id: string): Promise<Message | undefined>;
   getConversation(user1Id: string, user2Id: string): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
+  updateMessage(id: string, data: Partial<Message>): Promise<Message | undefined>;
   markMessageRead(id: string): Promise<void>;
 
   // Notifications
@@ -436,6 +438,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(messages.createdAt));
   }
 
+  async getMessage(id: string): Promise<Message | undefined> {
+    const [message] = await db.select().from(messages).where(eq(messages.id, id));
+    return message || undefined;
+  }
+
   async getConversation(user1Id: string, user2Id: string): Promise<Message[]> {
     return db.select().from(messages)
       .where(sql`(${messages.senderId} = ${user1Id} AND ${messages.receiverId} = ${user2Id}) OR (${messages.senderId} = ${user2Id} AND ${messages.receiverId} = ${user1Id})`)
@@ -447,8 +454,13 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async updateMessage(id: string, data: Partial<Message>): Promise<Message | undefined> {
+    const [updated] = await db.update(messages).set(data).where(eq(messages.id, id)).returning();
+    return updated || undefined;
+  }
+
   async markMessageRead(id: string): Promise<void> {
-    await db.update(messages).set({ isRead: true }).where(eq(messages.id, id));
+    await db.update(messages).set({ isRead: true, readAt: new Date() }).where(eq(messages.id, id));
   }
 
   // Notifications

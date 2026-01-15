@@ -353,7 +353,12 @@ export const messages = pgTable("messages", {
   senderId: varchar("sender_id", { length: 36 }).notNull().references(() => users.id),
   receiverId: varchar("receiver_id", { length: 36 }).notNull().references(() => users.id),
   content: text("content").notNull(),
+  replyToId: varchar("reply_to_id", { length: 36 }),
+  attachments: text("attachments").array(),
   isRead: boolean("is_read").default(false),
+  readAt: timestamp("read_at"),
+  isEdited: boolean("is_edited").default(false),
+  isDeleted: boolean("is_deleted").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

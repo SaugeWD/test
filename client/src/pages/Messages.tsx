@@ -15,7 +15,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -33,12 +32,22 @@ import {
   MessageCircle,
   Loader2,
   ArrowLeft,
+  Edit,
+  Trash2,
+  Reply,
+  Paperclip,
+  Check,
+  CheckCheck,
+  X,
+  FileText,
+  Image as ImageIcon,
 } from "lucide-react";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { useAuth } from "@/context/AuthContext";
 import { Link, useLocation, useRoute } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
+import { useUpload } from "@/hooks/use-upload";
 import type { Message as DBMessage, User } from "@shared/schema";
 
 interface ConversationFromAPI {
@@ -87,6 +96,12 @@ function formatTimeAgo(date: Date): string {
 
 function formatMessageTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function isImageUrl(url: string): boolean {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+  const lowerUrl = url.toLowerCase();
+  return imageExtensions.some(ext => lowerUrl.includes(ext));
 }
 
 function NewConversationDialog({
@@ -222,6 +237,21 @@ export default function MessagesPage() {
   const [isBlocked, setIsBlocked] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [initialUserLoaded, setInitialUserLoaded] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [replyToMessage, setReplyToMessage] = useState<DBMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<DBMessage | null>(null);
+  const [editText, setEditText] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<string[]>([]);
+
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      setPendingAttachments((prev) => [...prev, response.objectPath]);
+    },
+    onError: (error) => {
+      console.error("Upload failed:", error);
+    },
+  });
 
   const { data: targetUser } = useQuery<User>({
     queryKey: ["/api/users", targetUserId],
@@ -303,6 +333,17 @@ export default function MessagesPage() {
     }
   }, [selectedMessages]);
 
+  useEffect(() => {
+    if (selectedMessages && currentUser) {
+      const unreadMessages = selectedMessages.filter(
+        (msg) => msg.receiverId === currentUser.id && !msg.isRead
+      );
+      unreadMessages.forEach((msg) => {
+        markReadMutation.mutate(msg.id);
+      });
+    }
+  }, [selectedMessages, currentUser]);
+
   const conversations: Conversation[] = (conversationsData || []).map((c) => ({
     id: c.id,
     user: {
@@ -325,7 +366,7 @@ export default function MessagesPage() {
   );
 
   const sendMutation = useMutation({
-    mutationFn: async (data: { receiverId: string; content: string }) => {
+    mutationFn: async (data: { receiverId: string; content: string; replyToId?: string | null; attachments?: string[] }) => {
       const response = await apiRequest("POST", "/api/messages", data);
       return response.json();
     },
@@ -337,6 +378,50 @@ export default function MessagesPage() {
         });
       }
       setMessageText("");
+      setReplyToMessage(null);
+      setPendingAttachments([]);
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: async (data: { id: string; content: string }) => {
+      const response = await apiRequest("PATCH", `/api/messages/${data.id}`, { content: data.content });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+      if (selectedConversation) {
+        queryClient.invalidateQueries({
+          queryKey: ["/api/messages", selectedConversation.user.id],
+        });
+      }
+      setEditingMessage(null);
+      setEditText("");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/messages/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+      if (selectedConversation) {
+        queryClient.invalidateQueries({
+          queryKey: ["/api/messages", selectedConversation.user.id],
+        });
+      }
+    },
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("PATCH", `/api/messages/${id}/read`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
     },
   });
 
@@ -352,11 +437,38 @@ export default function MessagesPage() {
   });
 
   const handleSendMessage = () => {
-    if (!messageText.trim() || !selectedConversation || isBlocked) return;
+    if ((!messageText.trim() && pendingAttachments.length === 0) || !selectedConversation || isBlocked) return;
     sendMutation.mutate({
       receiverId: selectedConversation.user.id,
       content: messageText,
+      replyToId: replyToMessage?.id || null,
+      attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
     });
+  };
+
+  const handleEditMessage = () => {
+    if (!editText.trim() || !editingMessage) return;
+    editMutation.mutate({
+      id: editingMessage.id,
+      content: editText,
+    });
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    deleteMutation.mutate(messageId);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    for (let i = 0; i < files.length; i++) {
+      await uploadFile(files[i]);
+    }
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleNewConversation = (user: User) => {
@@ -384,6 +496,11 @@ export default function MessagesPage() {
   const handleBlockUser = () => {
     if (!selectedConversation) return;
     blockMutation.mutate(selectedConversation.user.id);
+  };
+
+  const getReplyToContent = (replyToId: string | null): DBMessage | undefined => {
+    if (!replyToId || !selectedMessages) return undefined;
+    return selectedMessages.find((m) => m.id === replyToId);
   };
 
   if (!currentUser) {
@@ -638,11 +755,16 @@ export default function MessagesPage() {
                       <div className="space-y-4">
                         {(selectedMessages || []).map((message) => {
                           const isOwn = message.senderId === currentUser?.id;
+                          const isDeleted = message.isDeleted;
+                          const isEdited = message.isEdited;
+                          const replyTo = getReplyToContent(message.replyToId);
+                          const attachments = message.attachments || [];
+
                           return (
                             <div
                               key={message.id}
                               className={cn(
-                                "flex gap-3",
+                                "flex gap-3 group",
                                 isOwn && "flex-row-reverse"
                               )}
                             >
@@ -667,23 +789,191 @@ export default function MessagesPage() {
                                   isOwn && "items-end"
                                 )}
                               >
-                                <div
-                                  className={cn(
-                                    "rounded-lg px-4 py-2",
-                                    isOwn
-                                      ? "bg-accent text-accent-foreground"
-                                      : "bg-secondary"
+                                {replyTo && (
+                                  <div className={cn(
+                                    "text-xs px-3 py-1.5 rounded border-l-2 border-accent/50 bg-accent/5 mb-1 max-w-full",
+                                    isOwn ? "text-right" : "text-left"
+                                  )}>
+                                    <span className="text-muted-foreground">
+                                      Replying to: 
+                                    </span>
+                                    <p className="truncate text-muted-foreground italic">
+                                      {replyTo.isDeleted ? "This message was deleted" : replyTo.content}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {editingMessage?.id === message.id ? (
+                                  <div className="flex flex-col gap-2 w-full min-w-[200px]">
+                                    <Textarea
+                                      value={editText}
+                                      onChange={(e) => setEditText(e.target.value)}
+                                      className="min-h-[60px] resize-none text-sm"
+                                      data-testid="input-edit-message"
+                                    />
+                                    <div className="flex gap-2 justify-end">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setEditingMessage(null);
+                                          setEditText("");
+                                        }}
+                                        data-testid="button-cancel-edit"
+                                      >
+                                        <X className="h-3 w-3 mr-1" />
+                                        Cancel
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={handleEditMessage}
+                                        disabled={editMutation.isPending || !editText.trim()}
+                                        data-testid="button-save-edit"
+                                      >
+                                        {editMutation.isPending ? (
+                                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                        ) : (
+                                          <Check className="h-3 w-3 mr-1" />
+                                        )}
+                                        Save
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-start gap-1">
+                                    <div
+                                      className={cn(
+                                        "rounded-lg px-4 py-2",
+                                        isOwn
+                                          ? "bg-accent text-accent-foreground"
+                                          : "bg-secondary",
+                                        isDeleted && "opacity-60"
+                                      )}
+                                    >
+                                      <p className={cn(
+                                        "text-sm leading-relaxed",
+                                        isDeleted && "italic"
+                                      )}>
+                                        {message.content}
+                                      </p>
+
+                                      {attachments.length > 0 && (
+                                        <div className="mt-2 space-y-2">
+                                          {attachments.map((attachment, idx) => (
+                                            <div key={idx}>
+                                              {isImageUrl(attachment) ? (
+                                                <a
+                                                  href={attachment}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="block"
+                                                >
+                                                  <img
+                                                    src={attachment}
+                                                    alt="Attachment"
+                                                    className="max-w-[200px] max-h-[200px] rounded object-cover"
+                                                  />
+                                                </a>
+                                              ) : (
+                                                <a
+                                                  href={attachment}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="flex items-center gap-2 text-xs underline"
+                                                >
+                                                  <FileText className="h-4 w-4" />
+                                                  <span className="truncate max-w-[150px]">
+                                                    {attachment.split('/').pop()}
+                                                  </span>
+                                                </a>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {!isDeleted && (
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            data-testid={`button-message-menu-${message.id}`}
+                                          >
+                                            <MoreVertical className="h-3 w-3" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align={isOwn ? "end" : "start"}>
+                                          <DropdownMenuItem
+                                            onClick={() => setReplyToMessage(message)}
+                                            data-testid={`button-reply-${message.id}`}
+                                          >
+                                            <Reply className="mr-2 h-4 w-4" />
+                                            Reply
+                                          </DropdownMenuItem>
+                                          {isOwn && (
+                                            <>
+                                              <DropdownMenuItem
+                                                onClick={() => {
+                                                  setEditingMessage(message);
+                                                  setEditText(message.content);
+                                                }}
+                                                data-testid={`button-edit-${message.id}`}
+                                              >
+                                                <Edit className="mr-2 h-4 w-4" />
+                                                Edit
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem
+                                                onClick={() => handleDeleteMessage(message.id)}
+                                                className="text-destructive"
+                                                disabled={deleteMutation.isPending}
+                                                data-testid={`button-delete-${message.id}`}
+                                              >
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Delete
+                                              </DropdownMenuItem>
+                                            </>
+                                          )}
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    )}
+                                  </div>
+                                )}
+
+                                <div className={cn(
+                                  "flex items-center gap-2 px-2",
+                                  isOwn ? "flex-row-reverse" : "flex-row"
+                                )}>
+                                  <span className="text-xs text-muted-foreground">
+                                    {message.createdAt
+                                      ? formatMessageTime(new Date(message.createdAt))
+                                      : ""}
+                                  </span>
+                                  {isEdited && !isDeleted && (
+                                    <span className="text-xs text-muted-foreground italic">
+                                      (edited)
+                                    </span>
                                   )}
-                                >
-                                  <p className="text-sm leading-relaxed">
-                                    {message.content}
-                                  </p>
+                                  {isOwn && !isDeleted && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {message.isRead ? (
+                                        <span className="flex items-center gap-1">
+                                          <CheckCheck className="h-3 w-3 text-accent" />
+                                          {message.readAt && (
+                                            <span className="text-[10px]">
+                                              {formatMessageTime(new Date(message.readAt))}
+                                            </span>
+                                          )}
+                                        </span>
+                                      ) : (
+                                        <Check className="h-3 w-3" />
+                                      )}
+                                    </span>
+                                  )}
                                 </div>
-                                <span className="text-xs text-muted-foreground px-2">
-                                  {message.createdAt
-                                    ? formatMessageTime(new Date(message.createdAt))
-                                    : ""}
-                                </span>
                               </div>
                             </div>
                           );
@@ -705,36 +995,116 @@ export default function MessagesPage() {
                         </p>
                       </div>
                     ) : (
-                      <div className="flex gap-2">
-                        <Textarea
-                          placeholder="Type a message..."
-                          value={messageText}
-                          onChange={(e) => setMessageText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
+                      <>
+                        {replyToMessage && (
+                          <div className="mb-2 p-2 bg-accent/10 rounded-lg flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground mb-1">
+                                Replying to:
+                              </p>
+                              <p className="text-sm truncate">
+                                {replyToMessage.content}
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 flex-shrink-0"
+                              onClick={() => setReplyToMessage(null)}
+                              data-testid="button-cancel-reply"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+
+                        {pendingAttachments.length > 0 && (
+                          <div className="mb-2 flex flex-wrap gap-2">
+                            {pendingAttachments.map((attachment, idx) => (
+                              <div key={idx} className="relative group">
+                                {isImageUrl(attachment) ? (
+                                  <img
+                                    src={attachment}
+                                    alt="Pending attachment"
+                                    className="h-16 w-16 rounded object-cover"
+                                  />
+                                ) : (
+                                  <div className="h-16 w-16 rounded bg-secondary flex items-center justify-center">
+                                    <FileText className="h-6 w-6 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  className="absolute -top-2 -right-2 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => {
+                                    setPendingAttachments((prev) =>
+                                      prev.filter((_, i) => i !== idx)
+                                    );
+                                  }}
+                                  data-testid={`button-remove-attachment-${idx}`}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileSelect}
+                            className="hidden"
+                            multiple
+                            accept="image/*,.pdf,.doc,.docx,.txt"
+                            data-testid="input-file"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
+                            className="flex-shrink-0"
+                            data-testid="button-attach"
+                          >
+                            {isUploading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Paperclip className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Textarea
+                            placeholder="Type a message..."
+                            value={messageText}
+                            onChange={(e) => setMessageText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendMessage();
+                              }
+                            }}
+                            className="min-h-[60px] max-h-[120px] resize-none"
+                            data-testid="input-message"
+                          />
+                          <Button
+                            onClick={handleSendMessage}
+                            size="icon"
+                            className="flex-shrink-0 h-[60px] w-[60px]"
+                            disabled={
+                              sendMutation.isPending || (!messageText.trim() && pendingAttachments.length === 0)
                             }
-                          }}
-                          className="min-h-[60px] max-h-[120px] resize-none"
-                          data-testid="input-message"
-                        />
-                        <Button
-                          onClick={handleSendMessage}
-                          size="icon"
-                          className="flex-shrink-0 h-[60px] w-[60px]"
-                          disabled={
-                            sendMutation.isPending || !messageText.trim()
-                          }
-                          data-testid="button-send-message"
-                        >
-                          {sendMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Send className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
+                            data-testid="button-send-message"
+                          >
+                            {sendMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </>
                     )}
                     {!isBlocked && (
                       <p className="text-xs text-muted-foreground mt-2">
