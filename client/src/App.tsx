@@ -19,6 +19,7 @@ import BookDetailsPage from "@/pages/BookDetails";
 import ProjectsPage from "@/pages/Projects";
 import ProjectDetailPage from "@/pages/ProjectDetail";
 import JobsPage from "@/pages/Jobs";
+import JobDetailsPage from "@/pages/JobDetails";
 import ResearchPage from "@/pages/Research";
 import ResearchDetailPage from "@/pages/ResearchDetail";
 import ToolsPage from "@/pages/Tools";
@@ -62,6 +63,7 @@ function Router() {
       <Route path="/projects" component={ProjectsPage} />
       <Route path="/projects/:id" component={ProjectDetailPage} />
       <Route path="/jobs" component={JobsPage} />
+      <Route path="/jobs/:id" component={JobDetailsPage} />
       <Route path="/research" component={ResearchPage} />
       <Route path="/research/:id" component={ResearchDetailPage} />
       <Route path="/tools" component={ToolsPage} />
