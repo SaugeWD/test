@@ -188,6 +188,17 @@ export default function CommunityPage() {
     }
   };
 
+  const getFeedTypePageLink = (item: UnifiedFeedItem) => {
+    switch (item.feedType) {
+      case "project": return "/projects";
+      case "research": return "/research";
+      case "news": return "/news";
+      case "job": return "/jobs";
+      case "competition": return "/competitions";
+      default: return "/feed";
+    }
+  };
+
   const handleLike = (postId: number) => {
     setLikedPosts((prev) => {
       const newSet = new Set(prev);
@@ -351,10 +362,12 @@ export default function CommunityPage() {
                               )}
                               <div className="flex-1 min-w-0">
                                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                                  <Badge variant={getFeedTypeVariant(discussion.feedType)} className="capitalize">
-                                    {getFeedTypeIcon(discussion.feedType)}
-                                    {getFeedTypeLabel(discussion)}
-                                  </Badge>
+                                  <Link href={getFeedTypePageLink(discussion)} onClick={(e) => e.stopPropagation()} data-testid={`link-feedtype-${discussion.id}`}>
+                                    <Badge variant={getFeedTypeVariant(discussion.feedType)} className="capitalize cursor-pointer hover:opacity-80 transition-opacity" data-testid={`badge-feedtype-${discussion.id}`}>
+                                      {getFeedTypeIcon(discussion.feedType)}
+                                      {getFeedTypeLabel(discussion)}
+                                    </Badge>
+                                  </Link>
                                   {discussion.category && (
                                     <Link href={`/community?category=${encodeURIComponent(discussion.category)}`} onClick={(e) => e.stopPropagation()}>
                                       <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity" data-testid={`badge-tag-${discussion.id}`}>{discussion.category}</Badge>
