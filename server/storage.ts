@@ -85,6 +85,8 @@ export interface IStorage {
   getNewsForUser(userId: string, limit?: number): Promise<News[]>;
   getNewsById(id: string): Promise<News | undefined>;
   createNews(news: InsertNews): Promise<News>;
+  updateNews(id: string, data: Partial<InsertNews>): Promise<News | undefined>;
+  deleteNews(id: string): Promise<void>;
 
   // Messages
   getMessages(userId: string): Promise<Message[]>;
@@ -379,6 +381,15 @@ export class DatabaseStorage implements IStorage {
   async createNews(newsItem: InsertNews): Promise<News> {
     const [created] = await db.insert(news).values(newsItem).returning();
     return created;
+  }
+
+  async updateNews(id: string, data: Partial<InsertNews>): Promise<News | undefined> {
+    const [updated] = await db.update(news).set(data).where(eq(news.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteNews(id: string): Promise<void> {
+    await db.delete(news).where(eq(news.id, id));
   }
 
   // Messages

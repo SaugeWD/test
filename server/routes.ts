@@ -832,6 +832,64 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  app.put("/api/news/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const newsItem = await storage.getNewsById(req.params.id);
+      if (!newsItem) {
+        return res.status(404).json({ message: "News not found" });
+      }
+      const isAdmin = req.user!.role === "admin";
+      const isOwner = newsItem.submittedById === req.user!.id;
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: "Not authorized to edit this news" });
+      }
+      
+      const allowedFields = ["title", "content", "category", "excerpt", "source", "sourceUrl", "image", "images", "pdfAttachment", "tags", "authorName", "authorEmail", "authorPhone", "location", "publishDate", "isEvent", "eventDate", "eventEndDate", "eventTime", "eventLocation", "eventPrice", "eventRegistrationUrl"];
+      const adminOnlyFields = ["status", "featured", "submittedById"];
+      
+      const updateData: Record<string, unknown> = {};
+      for (const field of allowedFields) {
+        if (field in req.body) {
+          if (["publishDate", "eventDate", "eventEndDate"].includes(field) && req.body[field]) {
+            updateData[field] = new Date(req.body[field]);
+          } else {
+            updateData[field] = req.body[field];
+          }
+        }
+      }
+      if (isAdmin) {
+        for (const field of adminOnlyFields) {
+          if (field in req.body) {
+            updateData[field] = req.body[field];
+          }
+        }
+      }
+      
+      const updated = await storage.updateNews(req.params.id, updateData);
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update news" });
+    }
+  });
+
+  app.delete("/api/news/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const newsItem = await storage.getNewsById(req.params.id);
+      if (!newsItem) {
+        return res.status(404).json({ message: "News not found" });
+      }
+      const isAdmin = req.user!.role === "admin";
+      const isOwner = newsItem.submittedById === req.user!.id;
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: "Not authorized to delete this news" });
+      }
+      await storage.deleteNews(req.params.id);
+      res.json({ message: "News deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete news" });
+    }
+  });
+
   // ==================== LIKES ROUTES ====================
 
   app.post("/api/likes", authenticateToken, async (req: AuthenticatedRequest, res) => {

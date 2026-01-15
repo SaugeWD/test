@@ -27,8 +27,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Search, Newspaper, MapPin, ArrowRight, Bell, Plus, Users, Clock, Loader2, Upload, FileText, X, Image as ImageIcon } from "lucide-react";
-import { Link } from "wouter";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Calendar, Search, Newspaper, MapPin, ArrowRight, Bell, Plus, Users, Clock, Loader2, Upload, FileText, X, Image as ImageIcon, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { SocialInteractions } from "@/components/SocialInteractions";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -36,6 +52,8 @@ import { useUpload } from "@/hooks/use-upload";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/context/AuthContext";
+import type { News } from "@shared/schema";
 
 const newsSubmitSchema = z.object({
   category: z.string().min(1, "Category is required"),
@@ -715,13 +733,547 @@ function NewsSubmitDialog() {
   );
 }
 
+interface NewsEditDialogProps {
+  newsItem: News;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function NewsEditDialog({ newsItem, isOpen, onOpenChange }: NewsEditDialogProps) {
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>(
+    newsItem.images?.map((path, i) => ({ path, name: `Image ${i + 1}`, preview: path })) || 
+    (newsItem.image ? [{ path: newsItem.image, name: "Image 1", preview: newsItem.image }] : [])
+  );
+  const [pdfAttachment, setPdfAttachment] = useState<{ path: string; name: string } | null>(
+    newsItem.pdfAttachment ? { path: newsItem.pdfAttachment, name: "Attached PDF" } : null
+  );
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
+  const [pdfUploadProgress, setPdfUploadProgress] = useState(0);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  
+  const { toast } = useToast();
+  const { uploadFile } = useUpload();
+
+  const formatDateForInput = (date: Date | string | null | undefined) => {
+    if (!date) return "";
+    const d = new Date(date);
+    return d.toISOString().split('T')[0];
+  };
+
+  const form = useForm<NewsSubmitFormValues>({
+    resolver: zodResolver(newsSubmitSchema),
+    defaultValues: {
+      category: newsItem.category || "",
+      title: newsItem.title || "",
+      excerpt: newsItem.excerpt || "",
+      content: newsItem.content || "",
+      tags: newsItem.tags?.join(", ") || "",
+      authorName: newsItem.authorName || "",
+      authorEmail: newsItem.authorEmail || "",
+      authorPhone: newsItem.authorPhone || "",
+      location: newsItem.location || "",
+      source: newsItem.source || "",
+      sourceUrl: newsItem.sourceUrl || "",
+      publishDate: formatDateForInput(newsItem.publishDate),
+      isEvent: newsItem.isEvent || false,
+      eventDate: formatDateForInput(newsItem.eventDate),
+      eventEndDate: formatDateForInput(newsItem.eventEndDate),
+      eventTime: newsItem.eventTime || "",
+      eventLocation: newsItem.eventLocation || "",
+      eventPrice: newsItem.eventPrice || "",
+      eventRegistrationUrl: newsItem.eventRegistrationUrl || "",
+    },
+  });
+
+  const isEvent = form.watch("isEvent");
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const remainingSlots = 5 - uploadedImages.length;
+    if (remainingSlots <= 0) {
+      toast({
+        title: "Maximum images reached",
+        description: "You can upload up to 5 images",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+    setIsUploadingImage(true);
+    setImageUploadProgress(0);
+
+    for (let i = 0; i < filesToUpload.length; i++) {
+      const file = filesToUpload[i];
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Invalid file type",
+          description: `${file.name} is not an image`,
+          variant: "destructive",
+        });
+        continue;
+      }
+
+      try {
+        const result = await uploadFile(file);
+        if (result) {
+          const preview = URL.createObjectURL(file);
+          setUploadedImages((prev) => [
+            ...prev,
+            { path: result.objectPath, name: file.name, preview },
+          ]);
+        }
+        setImageUploadProgress(((i + 1) / filesToUpload.length) * 100);
+      } catch (error) {
+        toast({
+          title: "Upload failed",
+          description: `Failed to upload ${file.name}`,
+          variant: "destructive",
+        });
+      }
+    }
+
+    setIsUploadingImage(false);
+    setImageUploadProgress(0);
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a PDF file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingPdf(true);
+    setPdfUploadProgress(0);
+
+    try {
+      setPdfUploadProgress(30);
+      const result = await uploadFile(file);
+      if (result) {
+        setPdfAttachment({ path: result.objectPath, name: file.name });
+        setPdfUploadProgress(100);
+      }
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload PDF",
+        variant: "destructive",
+      });
+    }
+
+    setIsUploadingPdf(false);
+    setPdfUploadProgress(0);
+    if (pdfInputRef.current) {
+      pdfInputRef.current.value = "";
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages((prev) => {
+      const newImages = [...prev];
+      if (newImages[index].preview.startsWith("blob:")) {
+        URL.revokeObjectURL(newImages[index].preview);
+      }
+      newImages.splice(index, 1);
+      return newImages;
+    });
+  };
+
+  const removePdf = () => {
+    setPdfAttachment(null);
+  };
+
+  const updateNewsMutation = useMutation({
+    mutationFn: async (data: NewsSubmitFormValues) => {
+      const response = await apiRequest("PUT", `/api/news/${newsItem.id}`, {
+        title: data.title,
+        content: data.content,
+        category: data.category,
+        excerpt: data.excerpt || data.content.substring(0, 200),
+        source: data.source || undefined,
+        sourceUrl: data.sourceUrl || undefined,
+        image: uploadedImages.length > 0 ? uploadedImages[0].path : undefined,
+        images: uploadedImages.map((img) => img.path),
+        pdfAttachment: pdfAttachment?.path || undefined,
+        tags: data.tags ? data.tags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
+        authorName: data.authorName,
+        authorEmail: data.authorEmail || undefined,
+        authorPhone: data.authorPhone || undefined,
+        location: data.location || undefined,
+        publishDate: data.publishDate ? new Date(data.publishDate).toISOString() : undefined,
+        isEvent: data.isEvent,
+        eventDate: data.isEvent && data.eventDate ? new Date(data.eventDate).toISOString() : undefined,
+        eventEndDate: data.isEvent && data.eventEndDate ? new Date(data.eventEndDate).toISOString() : undefined,
+        eventTime: data.isEvent ? data.eventTime : undefined,
+        eventLocation: data.isEvent ? data.eventLocation : undefined,
+        eventPrice: data.isEvent ? data.eventPrice : undefined,
+        eventRegistrationUrl: data.isEvent && data.eventRegistrationUrl ? data.eventRegistrationUrl : undefined,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/news", newsItem.id] });
+      onOpenChange(false);
+      toast({
+        title: "News updated",
+        description: "Your news has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update news",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (data: NewsSubmitFormValues) => {
+    updateNewsMutation.mutate(data);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-serif text-2xl flex items-center gap-2">
+            <Edit className="h-6 w-6" />
+            Edit News
+          </DialogTitle>
+          <DialogDescription>
+            Update your news or event details
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 mt-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-category">Category *</Label>
+              <Select value={form.watch("category")} onValueChange={(value) => form.setValue("category", value)}>
+                <SelectTrigger id="edit-category" data-testid="select-edit-news-category">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Industry News">Industry News</SelectItem>
+                  <SelectItem value="Urban Planning">Urban Planning</SelectItem>
+                  <SelectItem value="Market Analysis">Market Analysis</SelectItem>
+                  <SelectItem value="Awards">Awards</SelectItem>
+                  <SelectItem value="Events">Events</SelectItem>
+                  <SelectItem value="Sustainability">Sustainability</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title *</Label>
+              <Input
+                id="edit-title"
+                placeholder="Enter news title"
+                {...form.register("title")}
+                data-testid="input-edit-news-title"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-excerpt">Excerpt/Summary</Label>
+              <Input
+                id="edit-excerpt"
+                placeholder="Brief summary of the news"
+                {...form.register("excerpt")}
+                data-testid="input-edit-news-excerpt"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-content">Content *</Label>
+              <Textarea
+                id="edit-content"
+                placeholder="Provide detailed content..."
+                rows={6}
+                {...form.register("content")}
+                data-testid="textarea-edit-news-content"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-tags">Tags</Label>
+              <Input
+                id="edit-tags"
+                placeholder="architecture, design, sustainability (comma-separated)"
+                {...form.register("tags")}
+                data-testid="input-edit-news-tags"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-authorName">Author Name *</Label>
+              <Input
+                id="edit-authorName"
+                placeholder="Your name"
+                {...form.register("authorName")}
+                data-testid="input-edit-news-author-name"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <ImageIcon className="h-4 w-4" />
+              Media
+            </div>
+            <Separator />
+
+            <div className="space-y-2">
+              <Label>Images (up to 5)</Label>
+              <div className="space-y-3">
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  data-testid="input-edit-news-images"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={isUploadingImage || uploadedImages.length >= 5}
+                  className="w-full"
+                  data-testid="button-edit-upload-images"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {isUploadingImage ? "Uploading..." : `Upload Images (${uploadedImages.length}/5)`}
+                </Button>
+                
+                {isUploadingImage && (
+                  <Progress value={imageUploadProgress} className="h-2" />
+                )}
+
+                {uploadedImages.length > 0 && (
+                  <div className="grid grid-cols-5 gap-2">
+                    {uploadedImages.map((img, index) => (
+                      <div key={index} className="relative group aspect-square">
+                        <img
+                          src={img.preview}
+                          alt={img.name}
+                          className="w-full h-full object-cover rounded-md border"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => removeImage(index)}
+                          data-testid={`button-edit-remove-image-${index}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>PDF Attachment</Label>
+              <div className="space-y-3">
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handlePdfUpload}
+                  className="hidden"
+                  data-testid="input-edit-news-pdf"
+                />
+                
+                {!pdfAttachment ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => pdfInputRef.current?.click()}
+                      disabled={isUploadingPdf}
+                      className="w-full"
+                      data-testid="button-edit-upload-pdf"
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      {isUploadingPdf ? "Uploading..." : "Upload PDF"}
+                    </Button>
+                    {isUploadingPdf && (
+                      <Progress value={pdfUploadProgress} className="h-2" />
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between p-3 border rounded-md bg-secondary/30">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm truncate max-w-[200px]">{pdfAttachment.name}</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={removePdf}
+                      data-testid="button-edit-remove-pdf"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              Event Details
+            </div>
+            <Separator />
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="edit-isEvent"
+                checked={isEvent}
+                onCheckedChange={(checked) => form.setValue("isEvent", checked === true)}
+                data-testid="checkbox-edit-is-event"
+              />
+              <Label htmlFor="edit-isEvent" className="cursor-pointer">
+                This is an event
+              </Label>
+            </div>
+
+            {isEvent && (
+              <div className="space-y-4 pl-6 border-l-2 border-accent/30">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-eventDate">Event Date *</Label>
+                    <Input
+                      id="edit-eventDate"
+                      type="date"
+                      {...form.register("eventDate")}
+                      data-testid="input-edit-event-date"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-eventEndDate">Event End Date</Label>
+                    <Input
+                      id="edit-eventEndDate"
+                      type="date"
+                      {...form.register("eventEndDate")}
+                      data-testid="input-edit-event-end-date"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-eventTime">Event Time</Label>
+                    <Input
+                      id="edit-eventTime"
+                      type="time"
+                      {...form.register("eventTime")}
+                      data-testid="input-edit-event-time"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-eventPrice">Event Price</Label>
+                    <Input
+                      id="edit-eventPrice"
+                      placeholder="Free or 50 JOD"
+                      {...form.register("eventPrice")}
+                      data-testid="input-edit-event-price"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-eventLocation">Event Location *</Label>
+                  <Input
+                    id="edit-eventLocation"
+                    placeholder="Venue name and address"
+                    {...form.register("eventLocation")}
+                    data-testid="input-edit-event-location"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-eventRegistrationUrl">Event Registration URL</Label>
+                  <Input
+                    id="edit-eventRegistrationUrl"
+                    type="url"
+                    placeholder="https://example.com/register"
+                    {...form.register("eventRegistrationUrl")}
+                    data-testid="input-edit-event-registration-url"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1"
+              data-testid="button-cancel-edit"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={updateNewsMutation.isPending || isUploadingImage || isUploadingPdf}
+              className="flex-1"
+              data-testid="button-confirm-edit"
+            >
+              {updateNewsMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function NewsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [selectedEventType, setSelectedEventType] = useState("all");
   const [reminders, setReminders] = useState<Record<number, boolean>>({});
+  const [editingNews, setEditingNews] = useState<News | null>(null);
+  const [deletingNewsId, setDeletingNewsId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
 
   // Fetch news from API
   const { data: news = [], isLoading: isLoadingNews } = useQuery<any[]>({
@@ -798,6 +1350,38 @@ export default function NewsPage() {
     }
     return formatDate(start);
   };
+
+  const deleteNewsMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/news/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+      setDeletingNewsId(null);
+      toast({
+        title: "News deleted",
+        description: "The news has been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete news",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCardClick = (itemId: string) => {
+    navigate(`/news/${itemId}`);
+  };
+
+  const isOwner = (item: any) => {
+    return user?.id && item.submittedById === user.id;
+  };
+
+  const isAdminUser = user?.role === "admin";
 
   return (
     <div className="min-h-screen">
@@ -882,18 +1466,61 @@ export default function NewsPage() {
                   {filteredNews.map((item) => (
                     <Card 
                       key={item.id} 
-                      className="group flex flex-col overflow-hidden hover-elevate" 
+                      className="group relative flex flex-col overflow-visible hover-elevate cursor-pointer" 
                       data-testid={`card-news-${item.id}`}
+                      onClick={() => handleCardClick(item.id)}
                     >
-                      <Link href={`/news/${item.id}`}>
-                        <div className="relative aspect-video overflow-hidden bg-secondary/30">
-                          <img
-                            src={item.image}
-                            alt={item.title}
-                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                          />
+                      {(isOwner(item) || isAdminUser) && (
+                        <div 
+                          className="absolute top-2 right-2 z-10"
+                          style={{ visibility: "hidden" }}
+                          data-testid={`menu-container-${item.id}`}
+                        >
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="secondary" 
+                                size="icon" 
+                                className="h-8 w-8"
+                                onClick={(e) => e.stopPropagation()}
+                                data-testid={`button-menu-${item.id}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingNews(item);
+                                }}
+                                data-testid={`menu-edit-${item.id}`}
+                              >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeletingNewsId(item.id);
+                                }}
+                                className="text-destructive focus:text-destructive"
+                                data-testid={`menu-delete-${item.id}`}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                      </Link>
+                      )}
+                      <div className="relative aspect-video overflow-hidden bg-secondary/30 rounded-t-md">
+                        <img
+                          src={item.image}
+                          alt={item.title}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      </div>
                       <CardHeader className="flex-grow">
                         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
                           <Badge variant="outline" data-testid={`badge-category-${item.id}`}>
@@ -903,40 +1530,46 @@ export default function NewsPage() {
                             <Calendar className="mr-1 h-3 w-3" />
                             {formatDate(item.date)}
                           </Badge>
+                          {item.status === "pending" && (
+                            <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                              Pending
+                            </Badge>
+                          )}
                         </div>
                         <CardTitle className="text-xl text-balance">
-                          <Link 
-                            href={`/news/${item.id}`} 
-                            className="hover:text-accent transition-colors"
-                            data-testid={`link-news-${item.id}`}
-                          >
-                            {item.title}
-                          </Link>
+                          {item.title}
                         </CardTitle>
                         <CardDescription className="line-clamp-2">{item.excerpt}</CardDescription>
                         <div className="mt-2 text-xs text-muted-foreground">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
                             <span data-testid={`text-author-${item.id}`}>by {item.author}</span>
-                            <span className="font-medium" data-testid={`text-source-${item.id}`}>{item.source}</span>
+                            {item.source && (
+                              <span className="font-medium" data-testid={`text-source-${item.id}`}>{item.source}</span>
+                            )}
                           </div>
                         </div>
                       </CardHeader>
                       <CardContent className="pt-0 mt-auto">
-                        <div className="pt-4 border-t flex items-center justify-between">
-                          <SocialInteractions
-                            contentId={`news-${item.id}`}
-                            contentType="news"
-                            initialLikes={Math.floor(Math.random() * 100)}
-                            initialComments={Math.floor(Math.random() * 20)}
-                          />
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/news/${item.id}`} data-testid={`button-read-more-${item.id}`}>
-                              Read More
-                              <ArrowRight className="ml-1 h-4 w-4" />
-                            </Link>
+                        <div className="pt-4 border-t flex items-center justify-between gap-2">
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <SocialInteractions
+                              contentId={`news-${item.id}`}
+                              contentType="news"
+                              initialLikes={Math.floor(Math.random() * 100)}
+                              initialComments={Math.floor(Math.random() * 20)}
+                            />
+                          </div>
+                          <Button variant="ghost" size="sm" data-testid={`button-read-more-${item.id}`}>
+                            Read More
+                            <ArrowRight className="ml-1 h-4 w-4" />
                           </Button>
                         </div>
                       </CardContent>
+                      <style>{`
+                        [data-testid="card-news-${item.id}"]:hover [data-testid="menu-container-${item.id}"] {
+                          visibility: visible !important;
+                        }
+                      `}</style>
                     </Card>
                   ))}
                 </div>
@@ -1072,6 +1705,44 @@ export default function NewsPage() {
       </section>
 
       <Footer />
+
+      {editingNews && (
+        <NewsEditDialog
+          newsItem={editingNews}
+          isOpen={!!editingNews}
+          onOpenChange={(open) => {
+            if (!open) setEditingNews(null);
+          }}
+        />
+      )}
+
+      <AlertDialog open={!!deletingNewsId} onOpenChange={(open) => !open && setDeletingNewsId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete News</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this news? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingNewsId && deleteNewsMutation.mutate(deletingNewsId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteNewsMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
