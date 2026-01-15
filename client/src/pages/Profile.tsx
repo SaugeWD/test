@@ -566,6 +566,12 @@ export default function ProfilePage() {
                       {displayUser.role}
                     </Badge>
                   )}
+                  {!isOwnProfile && followStatus?.status === "accepted" && (
+                    <Badge variant="outline" className="text-primary border-primary" data-testid="badge-following">
+                      <Check className="mr-1 h-3 w-3" />
+                      Following
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-lg text-muted-foreground">{displayUser?.title || "Architecture Enthusiast"}</p>
                 
@@ -678,9 +684,11 @@ export default function ProfilePage() {
                   >
                     {getFollowButtonContent()}
                   </Button>
-                  <Button data-testid="button-message">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Message
+                  <Button asChild data-testid="button-message">
+                    <Link href={`/messages/${userId}`}>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Message
+                    </Link>
                   </Button>
                 </>
               )}
