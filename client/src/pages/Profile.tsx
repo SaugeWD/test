@@ -716,56 +716,46 @@ export default function ProfilePage() {
                 <CardHeader>
                   <CardTitle className="text-lg">Stats</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <FileText className="h-4 w-4" />
-                      Posts
-                    </span>
-                    <span className="font-semibold" data-testid="text-posts-count">{userPosts?.length || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Folder className="h-4 w-4" />
-                      Projects
-                    </span>
-                    <span className="font-semibold" data-testid="text-projects-count">{userProjects?.length || userStats?.projects || 0}</span>
-                  </div>
-                  <button 
-                    onClick={() => setShowFollowers(true)}
-                    className="flex w-full items-center justify-between hover:bg-muted/50 rounded-md -mx-2 px-2 py-1 transition-colors"
-                    data-testid="button-show-followers"
-                  >
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      Followers
-                    </span>
-                    <span className="font-semibold" data-testid="text-followers-count">{followerCount?.count || 0}</span>
-                  </button>
-                  <button 
-                    onClick={() => setShowFollowing(true)}
-                    className="flex w-full items-center justify-between hover:bg-muted/50 rounded-md -mx-2 px-2 py-1 transition-colors"
-                    data-testid="button-show-following"
-                  >
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      Following
-                    </span>
-                    <span className="font-semibold" data-testid="text-following-count">{followingCount?.count || 0}</span>
-                  </button>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Heart className="h-4 w-4" />
-                      Likes Given
-                    </span>
-                    <span className="font-semibold" data-testid="text-likes-count">{userLikes?.length || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <MessageCircle className="h-4 w-4" />
-                      Comments
-                    </span>
-                    <span className="font-semibold" data-testid="text-comments-count">{userComments?.length || 0}</span>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+                      <FileText className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xl font-bold" data-testid="text-posts-count">{userPosts?.length || 0}</span>
+                      <span className="text-xs text-muted-foreground">Posts</span>
+                    </div>
+                    <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+                      <Folder className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xl font-bold" data-testid="text-projects-count">{userProjects?.length || userStats?.projects || 0}</span>
+                      <span className="text-xs text-muted-foreground">Projects</span>
+                    </div>
+                    <button 
+                      onClick={() => setShowFollowers(true)}
+                      className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center hover:bg-muted transition-colors"
+                      data-testid="button-show-followers"
+                    >
+                      <Users className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xl font-bold" data-testid="text-followers-count">{followerCount?.count || 0}</span>
+                      <span className="text-xs text-muted-foreground">Followers</span>
+                    </button>
+                    <button 
+                      onClick={() => setShowFollowing(true)}
+                      className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center hover:bg-muted transition-colors"
+                      data-testid="button-show-following"
+                    >
+                      <Users className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xl font-bold" data-testid="text-following-count">{followingCount?.count || 0}</span>
+                      <span className="text-xs text-muted-foreground">Following</span>
+                    </button>
+                    <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+                      <Heart className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xl font-bold" data-testid="text-likes-count">{userLikes?.length || 0}</span>
+                      <span className="text-xs text-muted-foreground">Likes</span>
+                    </div>
+                    <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+                      <MessageCircle className="h-5 w-5 text-muted-foreground mb-1" />
+                      <span className="text-xl font-bold" data-testid="text-comments-count">{userComments?.length || 0}</span>
+                      <span className="text-xs text-muted-foreground">Comments</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
