@@ -1223,29 +1223,37 @@ function GallerySection({ title, icon, images, onImageClick }: GallerySectionPro
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
           {images.map((image, index) => (
-            <button
+            <a
               key={index}
-              onClick={() => onImageClick(index)}
-              className="group relative aspect-[4/3] overflow-hidden rounded-lg border bg-muted/30 transition-all hover:border-primary/40 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
-              data-testid={`button-gallery-image-${title.toLowerCase().replace(/\s+/g, '-')}-${index}`}
+              href={image}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative block overflow-hidden rounded-lg border bg-muted/30 transition-all hover:border-primary/50 hover:shadow-lg"
+              data-testid={`gallery-item-${title.toLowerCase().replace(/\s+/g, '-')}-${index}`}
             >
-              <img
-                src={image}
-                alt={`${title} ${index + 1}`}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-xs font-medium text-white drop-shadow-sm">
+              <div className="aspect-[4/3] w-full overflow-hidden">
+                <img
+                  src={image}
+                  alt={`${title} ${index + 1}`}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                  loading="lazy"
+                />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center justify-between">
+                <span className="text-sm font-medium text-white drop-shadow-md opacity-0 group-hover:opacity-100 transition-opacity truncate">
                   {title.slice(0, -1)} {index + 1}
                 </span>
-                <span className="text-xs text-white/80 drop-shadow-sm">
-                  {index + 1}/{images.length}
-                </span>
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-xs text-white/80 drop-shadow-md flex items-center gap-1">
+                    <ExternalLink className="h-3 w-3" />
+                    Open
+                  </span>
+                </div>
               </div>
-            </button>
+            </a>
           ))}
         </div>
       </CardContent>
