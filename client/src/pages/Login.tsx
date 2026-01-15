@@ -397,11 +397,12 @@ export default function LoginPage() {
             placeholder="yourname"
             className="pl-10"
             value={username}
-            onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+            onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_\u0600-\u06FF-]/g, ""))}
             required
             data-testid="input-username"
           />
         </div>
+        <p className="text-xs text-muted-foreground">English letters, Arabic letters, numbers, and underscores allowed</p>
       </div>
 
       <div className="space-y-2">
