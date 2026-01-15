@@ -609,13 +609,15 @@ function PostCard({ post }: { post: FeedPost }) {
           </Link>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          {post.tags.map((tag) => (
-            <Badge key={tag} variant="outline" data-testid={`badge-tag-${post.id}-${tag}`}>
-              {tag}
-            </Badge>
-          ))}
-        </div>
+        {post.tags && Array.isArray(post.tags) && post.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {post.tags.map((tag) => (
+              <Badge key={tag} variant="outline" data-testid={`badge-tag-${post.id}-${tag}`}>
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center gap-1 pt-4 border-t">
           <Button
