@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { useAuth } from "@/context/AuthContext";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import type { Message as DBMessage, User } from "@shared/schema";
@@ -212,6 +212,8 @@ function MessageSkeleton() {
 export default function MessagesPage() {
   const { user: currentUser } = useAuth();
   const [, navigate] = useLocation();
+  const [, params] = useRoute("/messages/:userId");
+  const targetUserId = params?.userId;
   const [selectedConversation, setSelectedConversation] =
     useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -219,6 +221,12 @@ export default function MessagesPage() {
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [initialUserLoaded, setInitialUserLoaded] = useState(false);
+
+  const { data: targetUser } = useQuery<User>({
+    queryKey: ["/api/users", targetUserId],
+    enabled: !!targetUserId && !!currentUser && !initialUserLoaded,
+  });
 
   const {
     data: conversationsData,
@@ -227,6 +235,44 @@ export default function MessagesPage() {
     queryKey: ["/api/messages/conversations"],
     enabled: !!currentUser,
   });
+
+  useEffect(() => {
+    if (targetUser && !initialUserLoaded && currentUser) {
+      const existingConv = (conversationsData || []).find((c) => c.user.id === targetUser.id);
+      if (existingConv) {
+        setSelectedConversation({
+          id: existingConv.id,
+          user: {
+            id: existingConv.user.id,
+            name: existingConv.user.name,
+            username: existingConv.user.username || existingConv.user.name.toLowerCase().replace(/\s/g, "-"),
+            avatar: existingConv.user.avatar,
+            isVerified: existingConv.user.isVerified || false,
+            verificationType: existingConv.user.verificationType as any,
+          },
+          lastMessage: existingConv.lastMessage,
+          timestamp: existingConv.lastMessageAt ? formatTimeAgo(new Date(existingConv.lastMessageAt)) : "",
+          unread: existingConv.unread,
+        });
+      } else {
+        setSelectedConversation({
+          id: `new-${targetUser.id}`,
+          user: {
+            id: targetUser.id,
+            name: targetUser.name,
+            username: targetUser.username,
+            avatar: targetUser.avatar,
+            isVerified: targetUser.isVerified || false,
+            verificationType: targetUser.verificationType as any,
+          },
+          lastMessage: "",
+          timestamp: "",
+          unread: 0,
+        });
+      }
+      setInitialUserLoaded(true);
+    }
+  }, [targetUser, conversationsData, initialUserLoaded, currentUser]);
 
   const { data: selectedMessages, isLoading: loadingMessages } = useQuery<
     DBMessage[]

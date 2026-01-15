@@ -54,6 +54,7 @@ function Router() {
       <Route path="/settings" component={SettingsPage} />
       <Route path="/activity" component={ActivityPage} />
       <Route path="/messages" component={MessagesPage} />
+      <Route path="/messages/:userId" component={MessagesPage} />
       <Route path="/my-courses" component={MyCoursesPage} />
       <Route path="/library" component={LibraryPage} />
       <Route path="/competitions" component={CompetitionsPage} />
