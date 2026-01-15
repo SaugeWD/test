@@ -24,22 +24,40 @@ import {
   Clock,
   Send,
   Filter,
-  Loader2
+  Loader2,
+  Building2,
+  Trophy,
+  Briefcase,
+  BookOpen,
+  Newspaper,
+  FileText,
+  Calendar,
+  DollarSign
 } from "lucide-react";
 import { Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
-interface Discussion {
-  id: number;
-  title: string;
-  author: string;
-  authorUsername: string;
-  avatar: string;
-  tag: string;
-  comments: number;
-  likes: number;
-  timeAgo: string;
-  excerpt: string;
+interface UnifiedFeedItem {
+  id: string;
+  feedType: "post" | "project" | "research" | "news" | "job" | "competition";
+  type: string;
+  title?: string;
+  content: string;
+  images?: string[];
+  tags?: string[];
+  category?: string;
+  createdAt: string;
+  author: { id?: string; name: string; username?: string; avatar?: string; isVerified?: boolean; verificationType?: string } | null;
+  likesCount: number;
+  commentsCount: number;
+  location?: string;
+  company?: string;
+  deadline?: string;
+  prize?: string;
+  university?: string;
+  isEvent?: boolean;
+  eventDate?: string;
+  eventLocation?: string;
 }
 
 const categories = ["All Topics", "Sustainability", "Software", "Regulations", "Competitions", "Career", "Design"];
@@ -89,10 +107,12 @@ export default function CommunityPage() {
     queryKey: ['/api/users']
   });
 
-  // Fetch discussions/posts from API
-  const { data: discussions = [], isLoading: isLoadingDiscussions } = useQuery<any[]>({
-    queryKey: ['/api/posts']
+  // Fetch discussions/posts from unified feed API
+  const { data: feedItems = [], isLoading: isLoadingDiscussions } = useQuery<UnifiedFeedItem[]>({
+    queryKey: ['/api/feed']
   });
+
+  const discussions = feedItems;
 
   // Get initials from name
   const getInitials = (name: string) => {
@@ -117,13 +137,56 @@ export default function CommunityPage() {
     return "Just now";
   };
 
-  const filteredDiscussions = discussions.filter((discussion: any) => {
+  const filteredDiscussions = discussions.filter((discussion: UnifiedFeedItem) => {
     const matchesSearch =
       (discussion.title || discussion.content || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (discussion.content || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "All Topics" || discussion.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const getFeedTypeIcon = (feedType: string) => {
+    switch (feedType) {
+      case "project": return <Building2 className="h-3 w-3 mr-1" />;
+      case "research": return <BookOpen className="h-3 w-3 mr-1" />;
+      case "news": return <Newspaper className="h-3 w-3 mr-1" />;
+      case "job": return <Briefcase className="h-3 w-3 mr-1" />;
+      case "competition": return <Trophy className="h-3 w-3 mr-1" />;
+      default: return <FileText className="h-3 w-3 mr-1" />;
+    }
+  };
+
+  const getFeedTypeLabel = (item: UnifiedFeedItem) => {
+    switch (item.feedType) {
+      case "project": return "Project";
+      case "research": return "Research";
+      case "news": return item.isEvent ? "Event" : "News";
+      case "job": return "Job";
+      case "competition": return "Competition";
+      default: return item.type || "Post";
+    }
+  };
+
+  const getFeedTypeVariant = (feedType: string): "default" | "secondary" | "outline" => {
+    switch (feedType) {
+      case "competition": return "default";
+      case "job": return "default";
+      case "research": return "secondary";
+      case "project": return "secondary";
+      default: return "outline";
+    }
+  };
+
+  const getDetailLink = (item: UnifiedFeedItem) => {
+    switch (item.feedType) {
+      case "project": return `/projects/${item.id}`;
+      case "research": return `/research/${item.id}`;
+      case "news": return `/news/${item.id}`;
+      case "job": return `/jobs/${item.id}`;
+      case "competition": return `/competitions/${item.id}`;
+      default: return null;
+    }
+  };
 
   const handleLike = (postId: number) => {
     setLikedPosts((prev) => {
@@ -264,7 +327,9 @@ export default function CommunityPage() {
                         </CardContent>
                       </Card>
                     ) : (
-                      filteredDiscussions.map((discussion: any) => (
+                      filteredDiscussions.map((discussion: UnifiedFeedItem) => {
+                        const detailLink = getDetailLink(discussion);
+                        return (
                         <Card 
                           key={discussion.id} 
                           className="hover-elevate"
@@ -272,14 +337,24 @@ export default function CommunityPage() {
                         >
                           <CardHeader>
                             <div className="flex items-start gap-4">
-                              <Link href={`/profile/${discussion.author?.username || 'unknown'}`}>
-                                <Avatar className="cursor-pointer" data-testid={`avatar-${discussion.author?.username || discussion.id}`}>
-                                  {discussion.author?.avatar && <AvatarImage src={discussion.author.avatar} />}
+                              {discussion.author?.username ? (
+                                <Link href={`/profile/${discussion.author.username}`}>
+                                  <Avatar className="cursor-pointer" data-testid={`avatar-${discussion.author.username || discussion.id}`}>
+                                    {discussion.author?.avatar && <AvatarImage src={discussion.author.avatar} />}
+                                    <AvatarFallback>{getInitials(discussion.author?.name || 'U')}</AvatarFallback>
+                                  </Avatar>
+                                </Link>
+                              ) : (
+                                <Avatar data-testid={`avatar-${discussion.id}`}>
                                   <AvatarFallback>{getInitials(discussion.author?.name || 'U')}</AvatarFallback>
                                 </Avatar>
-                              </Link>
+                              )}
                               <div className="flex-1 min-w-0">
                                 <div className="mb-2 flex flex-wrap items-center gap-2">
+                                  <Badge variant={getFeedTypeVariant(discussion.feedType)} className="capitalize">
+                                    {getFeedTypeIcon(discussion.feedType)}
+                                    {getFeedTypeLabel(discussion)}
+                                  </Badge>
                                   {discussion.category && (
                                     <Link href={`/community?category=${encodeURIComponent(discussion.category)}`} onClick={(e) => e.stopPropagation()}>
                                       <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity" data-testid={`badge-tag-${discussion.id}`}>{discussion.category}</Badge>
@@ -291,37 +366,107 @@ export default function CommunityPage() {
                                   </span>
                                 </div>
                                 <CardTitle className="text-lg" data-testid={`text-title-${discussion.id}`}>
-                                  <button className="text-left hover:text-accent transition-colors">
-                                    {discussion.title || discussion.content?.substring(0, 100)}
-                                  </button>
+                                  {detailLink ? (
+                                    <Link href={detailLink} className="text-left hover:text-accent transition-colors">
+                                      {discussion.title || discussion.content?.substring(0, 100)}
+                                    </Link>
+                                  ) : (
+                                    <span className="text-left">
+                                      {discussion.title || discussion.content?.substring(0, 100)}
+                                    </span>
+                                  )}
                                 </CardTitle>
                                 <CardDescription className="mt-1">
-                                  <Link
-                                    href={`/profile/${discussion.author?.username || 'unknown'}`}
-                                    className="font-semibold hover:text-accent transition-colors"
-                                    data-testid={`link-author-${discussion.id}`}
-                                  >
-                                    {discussion.author?.name || 'Unknown'}
-                                  </Link>
+                                  {discussion.author?.username ? (
+                                    <Link
+                                      href={`/profile/${discussion.author.username}`}
+                                      className="font-semibold hover:text-accent transition-colors"
+                                      data-testid={`link-author-${discussion.id}`}
+                                    >
+                                      {discussion.author?.name || 'Unknown'}
+                                    </Link>
+                                  ) : (
+                                    <span className="font-semibold" data-testid={`link-author-${discussion.id}`}>
+                                      {discussion.author?.name || 'Unknown'}
+                                    </span>
+                                  )}
                                 </CardDescription>
                               </div>
                             </div>
                           </CardHeader>
                           <CardContent>
+                            {(discussion.location || discussion.company || discussion.deadline || discussion.prize || discussion.university || discussion.eventLocation || discussion.eventDate) && (
+                              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mb-3">
+                                {discussion.company && (
+                                  <span className="flex items-center gap-1">
+                                    <Building2 className="h-4 w-4" />
+                                    {discussion.company}
+                                  </span>
+                                )}
+                                {discussion.location && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="h-4 w-4" />
+                                    {discussion.location}
+                                  </span>
+                                )}
+                                {discussion.university && (
+                                  <span className="flex items-center gap-1">
+                                    <GraduationCap className="h-4 w-4" />
+                                    {discussion.university}
+                                  </span>
+                                )}
+                                {discussion.deadline && (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="h-4 w-4" />
+                                    Deadline: {new Date(discussion.deadline).toLocaleDateString()}
+                                  </span>
+                                )}
+                                {discussion.prize && (
+                                  <span className="flex items-center gap-1">
+                                    <DollarSign className="h-4 w-4" />
+                                    {discussion.prize}
+                                  </span>
+                                )}
+                                {discussion.eventDate && (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="h-4 w-4" />
+                                    {new Date(discussion.eventDate).toLocaleDateString()}
+                                  </span>
+                                )}
+                                {discussion.eventLocation && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="h-4 w-4" />
+                                    {discussion.eventLocation}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             <p className="mb-4 text-sm text-muted-foreground leading-relaxed" data-testid={`text-excerpt-${discussion.id}`}>
-                              {discussion.content?.substring(0, 200)}{discussion.content?.length > 200 ? '...' : ''}
+                              {discussion.content?.substring(0, 200)}{discussion.content && discussion.content.length > 200 ? '...' : ''}
                             </p>
+                            {discussion.images && discussion.images.length > 0 && (
+                              <div className="mb-4 flex gap-2 overflow-x-auto">
+                                {discussion.images.slice(0, 3).map((img, idx) => (
+                                  <img key={idx} src={img} alt="" className="h-24 w-24 object-cover rounded-lg flex-shrink-0" />
+                                ))}
+                                {discussion.images.length > 3 && (
+                                  <div className="h-24 w-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                                    <span className="text-sm text-muted-foreground">+{discussion.images.length - 3}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <div className="flex items-center justify-between border-t pt-4">
                               <div className="flex items-center gap-4">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleLike(discussion.id)}
-                                  className={likedPosts.has(discussion.id) ? "text-accent" : ""}
+                                  onClick={() => handleLike(Number(discussion.id))}
+                                  className={likedPosts.has(Number(discussion.id)) ? "text-accent" : ""}
                                   data-testid={`button-like-${discussion.id}`}
                                 >
-                                  <Heart className={`h-4 w-4 mr-1 ${likedPosts.has(discussion.id) ? "fill-current" : ""}`} />
-                                  <span>{(discussion.likesCount || 0) + (likedPosts.has(discussion.id) ? 1 : 0)}</span>
+                                  <Heart className={`h-4 w-4 mr-1 ${likedPosts.has(Number(discussion.id)) ? "fill-current" : ""}`} />
+                                  <span>{(discussion.likesCount || 0) + (likedPosts.has(Number(discussion.id)) ? 1 : 0)}</span>
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -335,16 +480,17 @@ export default function CommunityPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleSave(discussion.id)}
-                                className={savedPosts.has(discussion.id) ? "text-accent" : ""}
+                                onClick={() => handleSave(Number(discussion.id))}
+                                className={savedPosts.has(Number(discussion.id)) ? "text-accent" : ""}
                                 data-testid={`button-save-${discussion.id}`}
                               >
-                                <Bookmark className={`h-4 w-4 ${savedPosts.has(discussion.id) ? "fill-current" : ""}`} />
+                                <Bookmark className={`h-4 w-4 ${savedPosts.has(Number(discussion.id)) ? "fill-current" : ""}`} />
                               </Button>
                             </div>
                           </CardContent>
                         </Card>
-                      ))
+                      );})
+                      
                     )}
                   </div>
                 </TabsContent>
