@@ -6,17 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Calendar, Briefcase, Users, BookOpen, Folder, Settings, UserPlus, MessageSquare, Loader2, Heart, MessageCircle, FileText, Check, X, Clock, Bookmark, ExternalLink, Trash2, Trophy, MoreHorizontal, Newspaper } from "lucide-react";
+import { MapPin, Calendar, Briefcase, Users, BookOpen, Folder, Settings, UserPlus, MessageSquare, Loader2, Heart, MessageCircle, FileText, Check, X, Clock, Bookmark, ExternalLink, Trash2, Trophy, MoreHorizontal, Newspaper, Edit } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { User, Project, Post, Follow, SavedItem, Like, Comment, Book, Competition, Research, News } from "@shared/schema";
 import { SocialInteractions } from "@/components/SocialInteractions";
+import { NewsEditDialog } from "@/pages/News";
 
 function SavedItemCard({ item }: { item: SavedItem }) {
   const { toast } = useToast();
@@ -387,7 +388,10 @@ export default function ProfilePage() {
   });
 
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
+  const [deletingNewsId, setDeletingNewsId] = useState<string | null>(null);
+  const [editingNews, setEditingNews] = useState<News | null>(null);
 
   const deleteProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
@@ -406,6 +410,28 @@ export default function ProfilePage() {
       toast({
         title: "Error",
         description: error.message || "Failed to delete project.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteNewsMutation = useMutation({
+    mutationFn: async (newsId: string) => {
+      await apiRequest("DELETE", `/api/news/${newsId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/news`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+      toast({
+        title: "News deleted",
+        description: "Your news has been deleted successfully.",
+      });
+      setDeletingNewsId(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete news.",
         variant: "destructive",
       });
     },
@@ -922,48 +948,100 @@ export default function ProfilePage() {
                   ) : (
                     <div className="space-y-4">
                       {userNews.map((newsItem) => (
-                        <Link key={newsItem.id} href={`/news/${newsItem.id}`} className="block">
-                          <Card className="overflow-hidden hover-elevate cursor-pointer" data-testid={`card-news-${newsItem.id}`}>
-                            <div className="flex">
-                              <div className="shrink-0 w-24 h-24 bg-muted overflow-hidden flex items-center justify-center">
-                                {newsItem.images && newsItem.images.length > 0 ? (
-                                  <img src={newsItem.images[0]} alt={newsItem.title} className="h-full w-full object-cover" />
-                                ) : (
-                                  <Newspaper className="h-8 w-8 text-muted-foreground" />
+                        <Card 
+                          key={newsItem.id}
+                          className="group relative overflow-visible hover-elevate cursor-pointer" 
+                          data-testid={`card-news-${newsItem.id}`}
+                          onClick={() => navigate(`/news/${newsItem.id}`)}
+                        >
+                          {isOwnProfile && (
+                            <div 
+                              className="absolute top-2 right-2 z-10"
+                              style={{ visibility: "hidden" }}
+                              data-testid={`menu-container-news-${newsItem.id}`}
+                            >
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="secondary" 
+                                    size="icon" 
+                                    className="h-8 w-8"
+                                    onClick={(e) => e.stopPropagation()}
+                                    data-testid={`button-menu-news-${newsItem.id}`}
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuItem 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingNews(newsItem);
+                                    }}
+                                    data-testid={`menu-edit-news-${newsItem.id}`}
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeletingNewsId(newsItem.id);
+                                    }}
+                                    className="text-destructive focus:text-destructive"
+                                    data-testid={`menu-delete-news-${newsItem.id}`}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          )}
+                          <div className="flex">
+                            <div className="shrink-0 w-24 h-24 bg-muted overflow-hidden flex items-center justify-center">
+                              {newsItem.images && newsItem.images.length > 0 ? (
+                                <img src={newsItem.images[0]} alt={newsItem.title} className="h-full w-full object-cover" />
+                              ) : (
+                                <Newspaper className="h-8 w-8 text-muted-foreground" />
+                              )}
+                            </div>
+                            <CardContent className="p-4 flex-1">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                {newsItem.category && (
+                                  <Badge variant="outline" className="text-xs">{newsItem.category}</Badge>
+                                )}
+                                <Badge 
+                                  variant={newsItem.status === "approved" ? "default" : "secondary"} 
+                                  className="text-xs"
+                                >
+                                  {newsItem.status === "approved" ? (
+                                    <><Check className="h-3 w-3 mr-1" />Approved</>
+                                  ) : newsItem.status === "rejected" ? (
+                                    <><X className="h-3 w-3 mr-1" />Rejected</>
+                                  ) : (
+                                    <><Clock className="h-3 w-3 mr-1" />Pending</>
+                                  )}
+                                </Badge>
+                                {newsItem.isEvent && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    <Calendar className="h-3 w-3 mr-1" />
+                                    Event
+                                  </Badge>
                                 )}
                               </div>
-                              <CardContent className="p-4 flex-1">
-                                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                  {newsItem.category && (
-                                    <Badge variant="outline" className="text-xs">{newsItem.category}</Badge>
-                                  )}
-                                  <Badge 
-                                    variant={newsItem.status === "approved" ? "default" : "secondary"} 
-                                    className="text-xs"
-                                  >
-                                    {newsItem.status === "approved" ? (
-                                      <><Check className="h-3 w-3 mr-1" />Approved</>
-                                    ) : newsItem.status === "rejected" ? (
-                                      <><X className="h-3 w-3 mr-1" />Rejected</>
-                                    ) : (
-                                      <><Clock className="h-3 w-3 mr-1" />Pending</>
-                                    )}
-                                  </Badge>
-                                  {newsItem.isEvent && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      <Calendar className="h-3 w-3 mr-1" />
-                                      Event
-                                    </Badge>
-                                  )}
-                                </div>
-                                <h3 className="font-semibold text-sm line-clamp-1">{newsItem.title}</h3>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {newsItem.createdAt && new Date(newsItem.createdAt).toLocaleDateString()}
-                                </p>
-                              </CardContent>
-                            </div>
-                          </Card>
-                        </Link>
+                              <h3 className="font-semibold text-sm line-clamp-1">{newsItem.title}</h3>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {newsItem.createdAt && new Date(newsItem.createdAt).toLocaleDateString()}
+                              </p>
+                            </CardContent>
+                          </div>
+                          <style>{`
+                            [data-testid="card-news-${newsItem.id}"]:hover [data-testid="menu-container-news-${newsItem.id}"] {
+                              visibility: visible !important;
+                            }
+                          `}</style>
+                        </Card>
                       ))}
                     </div>
                   )}
@@ -1001,6 +1079,42 @@ export default function ProfilePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!deletingNewsId} onOpenChange={(open) => !open && setDeletingNewsId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete News</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this news? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingNewsId && deleteNewsMutation.mutate(deletingNewsId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteNewsMutation.isPending}
+            >
+              {deleteNewsMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {editingNews && (
+        <NewsEditDialog
+          newsItem={editingNews}
+          isOpen={!!editingNews}
+          onOpenChange={(open) => !open && setEditingNews(null)}
+        />
+      )}
 
       <Footer />
     </div>

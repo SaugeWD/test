@@ -733,13 +733,13 @@ function NewsSubmitDialog() {
   );
 }
 
-interface NewsEditDialogProps {
+export interface NewsEditDialogProps {
   newsItem: News;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-function NewsEditDialog({ newsItem, isOpen, onOpenChange }: NewsEditDialogProps) {
+export function NewsEditDialog({ newsItem, isOpen, onOpenChange }: NewsEditDialogProps) {
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>(
     newsItem.images?.map((path, i) => ({ path, name: `Image ${i + 1}`, preview: path })) || 
     (newsItem.image ? [{ path: newsItem.image, name: "Image 1", preview: newsItem.image }] : [])
