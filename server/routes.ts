@@ -801,7 +801,15 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.post("/api/news", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const result = insertNewsSchema.safeParse({ ...req.body, submittedById: req.user!.id });
+      // Convert date strings to Date objects for timestamp fields
+      const processedBody = {
+        ...req.body,
+        submittedById: req.user!.id,
+        publishDate: req.body.publishDate ? new Date(req.body.publishDate) : undefined,
+        eventDate: req.body.eventDate ? new Date(req.body.eventDate) : undefined,
+        eventEndDate: req.body.eventEndDate ? new Date(req.body.eventEndDate) : undefined,
+      };
+      const result = insertNewsSchema.safeParse(processedBody);
       if (!result.success) {
         return res.status(400).json({ message: fromZodError(result.error).message });
       }
