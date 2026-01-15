@@ -508,12 +508,16 @@ export default function ProjectDetail() {
 
                 <div className="mb-4 flex flex-wrap items-center gap-2">
                   {project.projectType && (
-                    <Badge variant={project.projectType === "academic" ? "secondary" : "default"}>
-                      {project.projectType === "academic" ? "Academic" : "Professional"}
-                    </Badge>
+                    <Link href={`/projects?type=${project.projectType}`}>
+                      <Badge variant={project.projectType === "academic" ? "secondary" : "default"} className="cursor-pointer hover:opacity-80 transition-opacity">
+                        {project.projectType === "academic" ? "Academic" : "Professional"}
+                      </Badge>
+                    </Link>
                   )}
                   {project.category && (
-                    <Badge variant="outline" className="capitalize">{project.category}</Badge>
+                    <Link href={`/projects?category=${project.category}`}>
+                      <Badge variant="outline" className="capitalize cursor-pointer hover:opacity-80 transition-opacity">{project.category}</Badge>
+                    </Link>
                   )}
                   {project.status === "pending" && (
                     <Badge variant="outline" className="text-yellow-600 border-yellow-600">Pending Approval</Badge>

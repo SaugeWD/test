@@ -14,8 +14,8 @@ import { Search, Folder, ArrowUpDown, Plus, MapPin, User, Loader2, Upload, Image
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useUpload } from "@/hooks/use-upload";
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useEffect } from "react";
+import { Link, useSearch } from "wouter";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { useAuth } from "@/context/AuthContext";
 import { useForm } from "react-hook-form";
@@ -631,11 +631,22 @@ function AddProjectDialog() {
 }
 
 export default function ProjectsPage() {
+  const searchQuery = useSearch();
+  const params = new URLSearchParams(searchQuery);
+  const urlCategory = params.get("category");
+  const urlType = params.get("type");
+  
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState(urlCategory || "all");
+  const [typeFilter, setTypeFilter] = useState(urlType || "all");
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
+  
+  useEffect(() => {
+    if (urlCategory) setCategoryFilter(urlCategory);
+    if (urlType) setTypeFilter(urlType);
+  }, [urlCategory, urlType]);
 
   const deleteProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
@@ -667,7 +678,8 @@ export default function ProjectsPage() {
       project.title.toLowerCase().includes(search.toLowerCase()) ||
       project.author?.name?.toLowerCase().includes(search.toLowerCase()) || false;
     const matchesCategory = categoryFilter === "all" || project.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesType = typeFilter === "all" || project.projectType === typeFilter;
+    return matchesSearch && matchesCategory && matchesType;
   });
 
   const categories = Array.from(new Set((projects || []).map((p) => p.category).filter(Boolean)));
@@ -709,7 +721,7 @@ export default function ProjectsPage() {
 
             <div className="flex gap-2 flex-wrap">
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[160px]" data-testid="select-filter-category">
                   <ArrowUpDown className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
@@ -720,6 +732,16 @@ export default function ProjectsPage() {
                       {cat}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-[140px]" data-testid="select-filter-type">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="academic">Academic</SelectItem>
+                  <SelectItem value="professional">Professional</SelectItem>
                 </SelectContent>
               </Select>
             </div>
