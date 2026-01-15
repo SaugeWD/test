@@ -933,7 +933,13 @@ export async function registerRoutes(app: Express): Promise<void> {
         });
       }
       
-      const result = insertJobSchema.safeParse({ ...req.body, postedById: req.user!.id });
+      // Convert deadline string to Date if provided
+      const jobData = { ...req.body, postedById: req.user!.id };
+      if (jobData.deadline && typeof jobData.deadline === "string") {
+        jobData.deadline = new Date(jobData.deadline);
+      }
+      
+      const result = insertJobSchema.safeParse(jobData);
       if (!result.success) {
         return res.status(400).json({ message: fromZodError(result.error).message });
       }
