@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams, Link, useLocation } from "wouter";
+import { useParams, Link } from "wouter";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { 
   ArrowLeft, Loader2, Briefcase, MapPin, Clock, DollarSign, 
   Building2, Calendar, ExternalLink, Share2, Bookmark, 
-  CheckCircle, Globe, Mail, Phone, Users
+  CheckCircle, Target, Award, GraduationCap, Timer
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -26,7 +25,6 @@ interface JobWithPoster extends Job {
 
 export default function JobDetails() {
   const { id } = useParams();
-  const [, navigate] = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
@@ -91,31 +89,57 @@ export default function JobDetails() {
     });
   };
 
-  const getTypeColor = (type: string | null) => {
+  const getRelativeTime = (date: Date | string | null) => {
+    if (!date) return "";
+    const d = new Date(date);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+    if (diffDays < 1) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    return formatDate(date);
+  };
+
+  const getDaysUntilDeadline = (deadline: Date | string | null) => {
+    if (!deadline) return null;
+    const d = new Date(deadline);
+    const now = new Date();
+    const diffDays = Math.ceil((d.getTime() - now.getTime()) / 86400000);
+    return diffDays;
+  };
+
+  const getTypeConfig = (type: string | null) => {
     switch (type) {
       case "full-time":
-        return "bg-green-500 text-white";
+        return { color: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20", label: "Full-time", icon: Briefcase };
       case "part-time":
-        return "bg-blue-500 text-white";
+        return { color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20", label: "Part-time", icon: Timer };
       case "internship":
-        return "bg-purple-500 text-white";
+        return { color: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20", label: "Internship", icon: GraduationCap };
       case "freelance":
-        return "bg-orange-500 text-white";
+        return { color: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20", label: "Freelance", icon: Target };
       case "contract":
-        return "bg-yellow-600 text-white";
+        return { color: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20", label: "Contract", icon: Award };
       default:
-        return "bg-gray-500 text-white";
+        return { color: "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20", label: type || "Job", icon: Briefcase };
     }
   };
 
   const isDeadlinePassed = job?.deadline ? new Date(job.deadline) < new Date() : false;
+  const daysUntilDeadline = job?.deadline ? getDaysUntilDeadline(job.deadline) : null;
+  const typeConfig = getTypeConfig(job?.type || null);
+  const TypeIcon = typeConfig.icon;
 
   if (isLoading) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-background">
         <Navigation />
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="text-center space-y-4">
+            <Loader2 className="h-10 w-10 animate-spin text-accent mx-auto" />
+            <p className="text-muted-foreground">Loading job details...</p>
+          </div>
         </div>
         <Footer />
       </div>
@@ -124,14 +148,19 @@ export default function JobDetails() {
 
   if (!job) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-background">
         <Navigation />
-        <div className="container mx-auto px-4 py-12 text-center">
-          <h1 className="text-2xl font-bold mb-4">Job Not Found</h1>
-          <p className="text-muted-foreground mb-6">This job listing may have been removed or expired.</p>
-          <Button asChild>
-            <Link href="/jobs">Browse All Jobs</Link>
-          </Button>
+        <div className="container mx-auto px-4 py-16 text-center">
+          <div className="max-w-md mx-auto space-y-6">
+            <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mx-auto">
+              <Briefcase className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h1 className="text-2xl font-bold">Job Not Found</h1>
+            <p className="text-muted-foreground">This job listing may have been removed or expired.</p>
+            <Button asChild size="lg">
+              <Link href="/jobs">Browse All Jobs</Link>
+            </Button>
+          </div>
         </div>
         <Footer />
       </div>
@@ -139,258 +168,334 @@ export default function JobDetails() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Navigation />
 
-      <section className="border-b bg-secondary/30 py-8">
-        <div className="container mx-auto px-4">
-          <Button variant="ghost" asChild className="mb-6">
+      <div className="border-b">
+        <div className="container mx-auto px-4 py-4">
+          <Button variant="ghost" size="sm" asChild>
             <Link href="/jobs">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Jobs
             </Link>
           </Button>
+        </div>
+      </div>
 
-          <div className="flex flex-col lg:flex-row gap-6 justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 flex-wrap mb-4">
-                {job.type && (
-                  <Badge className={`border-0 ${getTypeColor(job.type)}`}>
-                    {job.type}
-                  </Badge>
-                )}
-                {isDeadlinePassed && (
-                  <Badge variant="destructive">Deadline Passed</Badge>
-                )}
-                {job.isActive === false && (
-                  <Badge variant="secondary">Closed</Badge>
-                )}
-              </div>
-
-              <h1 className="font-serif text-3xl md:text-4xl font-bold mb-4">{job.title}</h1>
-
-              <div className="flex items-center gap-4 text-lg text-muted-foreground mb-4">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-accent" />
-                  <span className="font-medium">{job.company}</span>
+      <section className="bg-gradient-to-b from-secondary/50 to-background py-10 md:py-14">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex flex-col md:flex-row gap-6 md:gap-8">
+              <div className="flex-shrink-0">
+                <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-accent/20 to-accent/5 border border-accent/20 flex items-center justify-center">
+                  <Building2 className="h-10 w-10 md:h-12 md:w-12 text-accent" />
                 </div>
-                {job.location && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-accent" />
-                    <span>{job.location}</span>
-                  </div>
-                )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                {job.salary && (
-                  <div className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-md">
-                    <DollarSign className="h-4 w-4 text-accent" />
-                    <span>{job.salary}</span>
-                  </div>
-                )}
-                {job.deadline && (
-                  <div className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 rounded-md",
-                    isDeadlinePassed ? "bg-destructive/10 text-destructive" : "bg-secondary/50"
-                  )}>
-                    <Calendar className="h-4 w-4 text-accent" />
-                    <span>Apply by {formatDate(job.deadline)}</span>
-                  </div>
-                )}
-                {job.createdAt && (
-                  <div className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-md">
-                    <Clock className="h-4 w-4 text-accent" />
-                    <span>Posted {formatDate(job.createdAt)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
+              <div className="flex-1 space-y-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge className={cn("border", typeConfig.color)}>
+                    <TypeIcon className="h-3 w-3 mr-1" />
+                    {typeConfig.label}
+                  </Badge>
+                  {isDeadlinePassed && (
+                    <Badge variant="destructive">Deadline Passed</Badge>
+                  )}
+                  {job.isActive === false && (
+                    <Badge variant="secondary">Position Closed</Badge>
+                  )}
+                  {daysUntilDeadline && daysUntilDeadline > 0 && daysUntilDeadline <= 7 && (
+                    <Badge variant="outline" className="border-orange-500/30 text-orange-600 dark:text-orange-400">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {daysUntilDeadline} days left
+                    </Badge>
+                  )}
+                </div>
 
-            <div className="flex flex-col gap-3 lg:items-end">
-              <div className="flex gap-2">
+                <h1 className="font-serif text-3xl md:text-4xl font-bold leading-tight">{job.title}</h1>
+
+                <div className="flex items-center gap-2 text-lg">
+                  <span className="font-semibold text-foreground">{job.company}</span>
+                  {job.location && (
+                    <>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        {job.location}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  {job.salary && (
+                    <div className="flex items-center gap-2 bg-green-500/10 text-green-700 dark:text-green-400 px-4 py-2 rounded-lg">
+                      <DollarSign className="h-4 w-4" />
+                      <span className="font-medium">{job.salary}</span>
+                    </div>
+                  )}
+                  {job.deadline && (
+                    <div className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-lg",
+                      isDeadlinePassed 
+                        ? "bg-destructive/10 text-destructive" 
+                        : "bg-secondary text-muted-foreground"
+                    )}>
+                      <Calendar className="h-4 w-4" />
+                      <span>Apply by {formatDate(job.deadline)}</span>
+                    </div>
+                  )}
+                  {job.createdAt && (
+                    <div className="flex items-center gap-2 bg-secondary text-muted-foreground px-4 py-2 rounded-lg">
+                      <Clock className="h-4 w-4" />
+                      <span>Posted {getRelativeTime(job.createdAt)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex md:flex-col gap-2 md:items-end">
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending}
+                  className="shrink-0"
                   data-testid="button-save-job"
                 >
-                  <Bookmark className={cn("h-4 w-4", isSaved && "fill-current")} />
+                  <Bookmark className={cn("h-4 w-4", isSaved && "fill-current text-accent")} />
                 </Button>
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={handleShare}
+                  className="shrink-0"
                   data-testid="button-share-job"
                 >
                   <Share2 className="h-4 w-4" />
                 </Button>
               </div>
+            </div>
 
-              {job.applicationUrl && !isDeadlinePassed && job.isActive !== false && (
-                <Button size="lg" asChild className="w-full lg:w-auto" data-testid="button-apply-now">
+            {job.applicationUrl && !isDeadlinePassed && job.isActive !== false && (
+              <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                <Button size="lg" asChild className="flex-1 sm:flex-none" data-testid="button-apply-now">
                   <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="mr-2 h-4 w-4" />
+                    <ExternalLink className="mr-2 h-5 w-5" />
                     Apply Now
                   </a>
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
 
-      <section className="py-8">
+      <section className="py-10">
         <div className="container mx-auto px-4">
-          <div className="grid gap-8 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-8">
-              {job.description && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Briefcase className="h-5 w-5 text-accent" />
-                      Job Description
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      {job.description.split('\n').map((paragraph, i) => (
-                        <p key={i} className="text-muted-foreground leading-relaxed mb-3">
-                          {paragraph}
-                        </p>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {job.requirements && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-accent" />
-                      Requirements
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {job.requirements.split('\n').map((req, i) => (
-                        <div key={i} className="flex items-start gap-3">
-                          <div className="w-1.5 h-1.5 rounded-full bg-accent mt-2 flex-shrink-0" />
-                          <p className="text-muted-foreground">{req}</p>
+          <div className="max-w-4xl mx-auto">
+            <div className="grid gap-8 lg:grid-cols-3">
+              <div className="lg:col-span-2 space-y-6">
+                {job.description && (
+                  <Card>
+                    <CardHeader className="pb-4">
+                      <CardTitle className="flex items-center gap-3 text-xl">
+                        <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                          <Briefcase className="h-5 w-5 text-accent" />
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                        About This Role
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        {job.description.split('\n').filter(p => p.trim()).map((paragraph, i) => (
+                          <p key={i} className="text-muted-foreground leading-relaxed mb-4 last:mb-0">
+                            {paragraph}
+                          </p>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-            <div className="space-y-6">
-              {(poster || job.postedById) && (
+                {job.requirements && (
+                  <Card>
+                    <CardHeader className="pb-4">
+                      <CardTitle className="flex items-center gap-3 text-xl">
+                        <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                          <CheckCircle className="h-5 w-5 text-accent" />
+                        </div>
+                        Requirements & Qualifications
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-3">
+                        {job.requirements.split('\n').filter(r => r.trim()).map((req, i) => (
+                          <li key={i} className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <CheckCircle className="h-3.5 w-3.5 text-accent" />
+                            </div>
+                            <span className="text-muted-foreground leading-relaxed">{req}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!job.description && !job.requirements && (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <Briefcase className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                      <p className="text-muted-foreground">No additional details provided for this position.</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              <div className="space-y-6">
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Posted By</CardTitle>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-medium">Job Overview</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <Link href={`/profile/${poster?.username || ""}`}>
-                      <div className="flex items-center gap-3 hover-elevate p-2 -m-2 rounded-lg cursor-pointer">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={poster?.avatar || ""} />
-                          <AvatarFallback>
-                            {poster?.name?.[0] || job.company[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-medium">{poster?.name || job.company}</span>
-                            {poster?.isVerified && <VerificationBadge size="sm" />}
+                  <CardContent className="space-y-0">
+                    <div className="py-3 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
+                        <Building2 className="h-5 w-5 text-accent" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Company</p>
+                        <p className="font-medium">{job.company}</p>
+                      </div>
+                    </div>
+                    <Separator />
+
+                    {job.location && (
+                      <>
+                        <div className="py-3 flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
+                            <MapPin className="h-5 w-5 text-accent" />
                           </div>
-                          <p className="text-sm text-muted-foreground">
-                            {poster?.role === "firm" ? "Architecture Firm" : poster?.title || "Company"}
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide">Location</p>
+                            <p className="font-medium">{job.location}</p>
+                          </div>
+                        </div>
+                        <Separator />
+                      </>
+                    )}
+
+                    {job.type && (
+                      <>
+                        <div className="py-3 flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
+                            <TypeIcon className="h-5 w-5 text-accent" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide">Employment Type</p>
+                            <p className="font-medium capitalize">{job.type.replace("-", " ")}</p>
+                          </div>
+                        </div>
+                        <Separator />
+                      </>
+                    )}
+
+                    {job.salary && (
+                      <>
+                        <div className="py-3 flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                            <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide">Salary Range</p>
+                            <p className="font-medium text-green-600 dark:text-green-400">{job.salary}</p>
+                          </div>
+                        </div>
+                        <Separator />
+                      </>
+                    )}
+
+                    {job.deadline && (
+                      <div className="py-3 flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                          isDeadlinePassed ? "bg-destructive/10" : "bg-secondary"
+                        )}>
+                          <Calendar className={cn(
+                            "h-5 w-5",
+                            isDeadlinePassed ? "text-destructive" : "text-accent"
+                          )} />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Application Deadline</p>
+                          <p className={cn("font-medium", isDeadlinePassed && "text-destructive")}>
+                            {formatDate(job.deadline)}
                           </p>
                         </div>
                       </div>
-                    </Link>
+                    )}
                   </CardContent>
                 </Card>
-              )}
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-accent" />
-                    Job Overview
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Company</span>
-                    <span className="font-medium">{job.company}</span>
-                  </div>
-                  <Separator />
-                  {job.location && (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Location</span>
-                        <span className="font-medium">{job.location}</span>
-                      </div>
-                      <Separator />
-                    </>
-                  )}
-                  {job.type && (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Job Type</span>
-                        <Badge className={`border-0 ${getTypeColor(job.type)}`} variant="secondary">
-                          {job.type}
-                        </Badge>
-                      </div>
-                      <Separator />
-                    </>
-                  )}
-                  {job.salary && (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Salary</span>
-                        <span className="font-medium text-accent">{job.salary}</span>
-                      </div>
-                      <Separator />
-                    </>
-                  )}
-                  {job.deadline && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Deadline</span>
-                      <span className={cn(
-                        "font-medium",
-                        isDeadlinePassed && "text-destructive"
-                      )}>
-                        {formatDate(job.deadline)}
-                      </span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                {(poster || job.postedById) && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-medium">Posted By</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Link href={`/profile/${poster?.username || ""}`}>
+                        <div className="flex items-center gap-4 p-3 -m-3 rounded-xl hover-elevate cursor-pointer">
+                          <Avatar className="h-14 w-14 border-2 border-accent/20">
+                            <AvatarImage src={poster?.avatar || ""} />
+                            <AvatarFallback className="bg-accent/10 text-accent font-semibold">
+                              {poster?.name?.[0] || job.company[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold">{poster?.name || job.company}</span>
+                              {poster?.isVerified && <VerificationBadge size="sm" />}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {poster?.role === "firm" ? "Architecture Firm" : poster?.title || "Company"}
+                            </p>
+                            {poster?.location && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                <MapPin className="h-3 w-3" />
+                                {poster.location}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                )}
 
-              {job.applicationUrl && !isDeadlinePassed && job.isActive !== false && (
-                <Card className="bg-accent/5 border-accent/20">
-                  <CardContent className="pt-6">
-                    <div className="text-center space-y-4">
-                      <h3 className="font-semibold">Ready to Apply?</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Don't miss this opportunity. Apply now before the deadline!
-                      </p>
-                      <Button className="w-full" asChild data-testid="button-apply-cta">
-                        <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Apply for This Position
-                        </a>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                {job.applicationUrl && !isDeadlinePassed && job.isActive !== false && (
+                  <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
+                    <CardContent className="pt-6">
+                      <div className="text-center space-y-4">
+                        <div className="w-14 h-14 rounded-full bg-accent/20 flex items-center justify-center mx-auto">
+                          <Briefcase className="h-7 w-7 text-accent" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">Ready to Apply?</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Take the next step in your architecture career
+                          </p>
+                        </div>
+                        <Button className="w-full" size="lg" asChild data-testid="button-apply-cta">
+                          <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Apply for This Position
+                          </a>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </div>
           </div>
         </div>
