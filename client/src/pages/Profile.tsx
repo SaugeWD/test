@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapPin, Calendar, Briefcase, Users, BookOpen, Folder, Settings, UserPlus, MessageSquare, Loader2, Heart, MessageCircle, FileText, Check, X, Clock, Bookmark, ExternalLink, Trash2, Trophy, MoreHorizontal, Newspaper, Edit, Building2, GraduationCap, Camera, Globe, Phone, Award } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { useAuth } from "@/context/AuthContext";
@@ -392,6 +394,18 @@ export default function ProfilePage() {
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deletingNewsId, setDeletingNewsId] = useState<string | null>(null);
   const [editingNews, setEditingNews] = useState<News | null>(null);
+  const [showFollowers, setShowFollowers] = useState(false);
+  const [showFollowing, setShowFollowing] = useState(false);
+
+  const { data: followersList = [] } = useQuery<User[]>({
+    queryKey: ["/api/followers", userId, "list"],
+    enabled: !!userId && showFollowers,
+  });
+
+  const { data: followingList = [] } = useQuery<User[]>({
+    queryKey: ["/api/following", userId, "list"],
+    enabled: !!userId && showFollowing,
+  });
 
   const deleteProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
@@ -709,20 +723,28 @@ export default function ProfilePage() {
                     </span>
                     <span className="font-semibold" data-testid="text-projects-count">{userProjects?.length || userStats?.projects || 0}</span>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <button 
+                    onClick={() => setShowFollowers(true)}
+                    className="flex w-full items-center justify-between hover:bg-muted/50 rounded-md -mx-2 px-2 py-1 transition-colors"
+                    data-testid="button-show-followers"
+                  >
                     <span className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Users className="h-4 w-4" />
                       Followers
                     </span>
                     <span className="font-semibold" data-testid="text-followers-count">{followerCount?.count || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
+                  </button>
+                  <button 
+                    onClick={() => setShowFollowing(true)}
+                    className="flex w-full items-center justify-between hover:bg-muted/50 rounded-md -mx-2 px-2 py-1 transition-colors"
+                    data-testid="button-show-following"
+                  >
                     <span className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Users className="h-4 w-4" />
                       Following
                     </span>
                     <span className="font-semibold" data-testid="text-following-count">{followingCount?.count || 0}</span>
-                  </div>
+                  </button>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Heart className="h-4 w-4" />
@@ -1249,6 +1271,92 @@ export default function ProfilePage() {
           onOpenChange={(open) => !open && setEditingNews(null)}
         />
       )}
+
+      <Dialog open={showFollowers} onOpenChange={setShowFollowers}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Followers ({followerCount?.count || 0})
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            {followersList.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No followers yet</p>
+            ) : (
+              <div className="space-y-3">
+                {followersList.map((follower) => (
+                  <Link 
+                    key={follower.id} 
+                    href={`/profile/${follower.username}`}
+                    onClick={() => setShowFollowers(false)}
+                  >
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors" data-testid={`follower-${follower.id}`}>
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={follower.avatar || "/placeholder-user.jpg"} />
+                        <AvatarFallback>{follower.name?.[0] || "?"}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{follower.name}</p>
+                          {follower.isVerified && <VerificationBadge type="architect" size="sm" />}
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">@{follower.username}</p>
+                      </div>
+                      <Badge variant="secondary" className="capitalize text-xs">
+                        {follower.role}
+                      </Badge>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showFollowing} onOpenChange={setShowFollowing}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Following ({followingCount?.count || 0})
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            {followingList.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Not following anyone yet</p>
+            ) : (
+              <div className="space-y-3">
+                {followingList.map((following) => (
+                  <Link 
+                    key={following.id} 
+                    href={`/profile/${following.username}`}
+                    onClick={() => setShowFollowing(false)}
+                  >
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors" data-testid={`following-${following.id}`}>
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={following.avatar || "/placeholder-user.jpg"} />
+                        <AvatarFallback>{following.name?.[0] || "?"}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{following.name}</p>
+                          {following.isVerified && <VerificationBadge type="architect" size="sm" />}
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">@{following.username}</p>
+                      </div>
+                      <Badge variant="secondary" className="capitalize text-xs">
+                        {following.role}
+                      </Badge>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>

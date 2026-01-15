@@ -1496,6 +1496,26 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  app.get("/api/followers/:userId/list", async (req, res) => {
+    try {
+      const followers = await storage.getFollowersWithDetails(req.params.userId);
+      const safeFollowers = followers.map(({ password, ...user }) => user);
+      res.json(safeFollowers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get followers list" });
+    }
+  });
+
+  app.get("/api/following/:userId/list", async (req, res) => {
+    try {
+      const following = await storage.getFollowingWithDetails(req.params.userId);
+      const safeFollowing = following.map(({ password, ...user }) => user);
+      res.json(safeFollowing);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get following list" });
+    }
+  });
+
   // ==================== FOLLOW REQUESTS ROUTES ====================
 
   app.get("/api/follow-requests", authenticateToken, async (req: AuthenticatedRequest, res) => {

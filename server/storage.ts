@@ -148,6 +148,8 @@ export interface IStorage {
   rejectFollowRequest(followerId: string, followingId: string): Promise<void>;
   getPendingFollowRequests(userId: string): Promise<Follow[]>;
   getFollowStatus(followerId: string, followingId: string): Promise<Follow | undefined>;
+  getFollowersWithDetails(userId: string): Promise<User[]>;
+  getFollowingWithDetails(userId: string): Promise<User[]>;
 
   // Blocked Users
   blockUser(block: InsertBlockedUser): Promise<BlockedUser>;
@@ -642,6 +644,80 @@ export class DatabaseStorage implements IStorage {
         eq(follows.followingId, followingId)
       ));
     return result || undefined;
+  }
+
+  async getFollowersWithDetails(userId: string): Promise<User[]> {
+    const result = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        password: users.password,
+        name: users.name,
+        username: users.username,
+        role: users.role,
+        title: users.title,
+        bio: users.bio,
+        location: users.location,
+        avatar: users.avatar,
+        coverImage: users.coverImage,
+        isVerified: users.isVerified,
+        verificationType: users.verificationType,
+        companySize: users.companySize,
+        foundedYear: users.foundedYear,
+        specializations: users.specializations,
+        website: users.website,
+        phone: users.phone,
+        workplace: users.workplace,
+        yearsOfExperience: users.yearsOfExperience,
+        university: users.university,
+        yearOfStudy: users.yearOfStudy,
+        major: users.major,
+        expectedGraduation: users.expectedGraduation,
+        portfolioUrl: users.portfolioUrl,
+        isActivityPublic: users.isActivityPublic,
+        createdAt: users.createdAt,
+      })
+      .from(follows)
+      .innerJoin(users, eq(follows.followerId, users.id))
+      .where(and(eq(follows.followingId, userId), eq(follows.status, "accepted")));
+    return result;
+  }
+
+  async getFollowingWithDetails(userId: string): Promise<User[]> {
+    const result = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        password: users.password,
+        name: users.name,
+        username: users.username,
+        role: users.role,
+        title: users.title,
+        bio: users.bio,
+        location: users.location,
+        avatar: users.avatar,
+        coverImage: users.coverImage,
+        isVerified: users.isVerified,
+        verificationType: users.verificationType,
+        companySize: users.companySize,
+        foundedYear: users.foundedYear,
+        specializations: users.specializations,
+        website: users.website,
+        phone: users.phone,
+        workplace: users.workplace,
+        yearsOfExperience: users.yearsOfExperience,
+        university: users.university,
+        yearOfStudy: users.yearOfStudy,
+        major: users.major,
+        expectedGraduation: users.expectedGraduation,
+        portfolioUrl: users.portfolioUrl,
+        isActivityPublic: users.isActivityPublic,
+        createdAt: users.createdAt,
+      })
+      .from(follows)
+      .innerJoin(users, eq(follows.followingId, users.id))
+      .where(and(eq(follows.followerId, userId), eq(follows.status, "accepted")));
+    return result;
   }
 
   // Blocked Users
