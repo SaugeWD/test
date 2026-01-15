@@ -38,6 +38,9 @@ export default function JobsPage() {
   const [jobCompany, setJobCompany] = useState("");
   const [jobLocation, setJobLocation] = useState("");
   const [jobType, setJobType] = useState("full-time");
+  const [jobLevel, setJobLevel] = useState("");
+  const [jobCategory, setJobCategory] = useState("");
+  const [jobIsPaid, setJobIsPaid] = useState(true);
   const [jobDescription, setJobDescription] = useState("");
   const [jobRequirements, setJobRequirements] = useState("");
   const [jobSalary, setJobSalary] = useState("");
@@ -58,6 +61,9 @@ export default function JobsPage() {
       company: string;
       location?: string;
       type?: string;
+      level?: string;
+      category?: string;
+      isPaid?: boolean;
       description?: string;
       requirements?: string;
       salary?: string;
@@ -86,6 +92,9 @@ export default function JobsPage() {
     setJobCompany("");
     setJobLocation("");
     setJobType("full-time");
+    setJobLevel("");
+    setJobCategory("");
+    setJobIsPaid(true);
     setJobDescription("");
     setJobRequirements("");
     setJobSalary("");
@@ -104,6 +113,9 @@ export default function JobsPage() {
       company: jobCompany.trim(),
       location: jobLocation.trim() || undefined,
       type: jobType,
+      level: jobLevel || undefined,
+      category: jobCategory || undefined,
+      isPaid: jobIsPaid,
       description: jobDescription.trim() || undefined,
       requirements: jobRequirements.trim() || undefined,
       salary: jobSalary.trim() || undefined,
@@ -248,6 +260,41 @@ export default function JobsPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
+                        <Label htmlFor="jobLevelSelect">Experience Level</Label>
+                        <Select value={jobLevel} onValueChange={setJobLevel}>
+                          <SelectTrigger data-testid="select-job-level">
+                            <SelectValue placeholder="Select level" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="entry-level">Entry Level</SelectItem>
+                            <SelectItem value="junior">Junior</SelectItem>
+                            <SelectItem value="mid-level">Mid-Level</SelectItem>
+                            <SelectItem value="senior">Senior</SelectItem>
+                            <SelectItem value="lead">Lead / Manager</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="jobCategorySelect">Company Type</Label>
+                        <Select value={jobCategory} onValueChange={setJobCategory}>
+                          <SelectTrigger data-testid="select-job-category">
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="engineering-office">Engineering Office</SelectItem>
+                            <SelectItem value="architecture-firm">Architecture Firm</SelectItem>
+                            <SelectItem value="construction-company">Construction Company</SelectItem>
+                            <SelectItem value="design-studio">Design Studio</SelectItem>
+                            <SelectItem value="government">Government</SelectItem>
+                            <SelectItem value="developer">Real Estate Developer</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
                         <Label htmlFor="jobSalary">Salary Range</Label>
                         <div className="relative">
                           <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -275,6 +322,23 @@ export default function JobsPage() {
                           />
                         </div>
                       </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                          <DollarSign className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Paid Position</p>
+                          <p className="text-sm text-muted-foreground">This is a paid job opportunity</p>
+                        </div>
+                      </div>
+                      <Switch 
+                        checked={jobIsPaid} 
+                        onCheckedChange={setJobIsPaid}
+                        data-testid="switch-job-paid"
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -544,13 +608,30 @@ function JobCard({ job, user, toast, getTypeColor, formatPostedDate }: JobCardPr
           <div className="flex items-center gap-2 flex-wrap">
             {job.type && (
               <Link href={`/jobs?type=${job.type}`} onClick={(e) => e.stopPropagation()}>
-                <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity">
-                  {job.type}
+                <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity capitalize">
+                  {job.type.replace("-", " ")}
                 </Badge>
               </Link>
             )}
-            {hasApplied && (
+            {job.level && (
+              <Badge variant="secondary" className="capitalize">
+                {job.level.replace("-", " ")}
+              </Badge>
+            )}
+            {job.isPaid && (
               <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                <DollarSign className="h-3 w-3 mr-1" />
+                Paid
+              </Badge>
+            )}
+            {job.category && (
+              <Badge variant="outline" className="bg-accent/5 capitalize">
+                <Building className="h-3 w-3 mr-1" />
+                {job.category.replace("-", " ")}
+              </Badge>
+            )}
+            {hasApplied && (
+              <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                 Applied
               </Badge>
             )}

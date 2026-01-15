@@ -185,6 +185,9 @@ export const jobs = pgTable("jobs", {
   company: text("company").notNull(),
   location: text("location"),
   type: jobTypeEnum("type").default("full-time"),
+  level: text("level"), // Senior, Junior, Mid-level, Entry-level
+  category: text("category"), // Engineering Office, Architecture Firm, etc.
+  isPaid: boolean("is_paid").default(true),
   description: text("description"),
   requirements: text("requirements"),
   salary: text("salary"),
