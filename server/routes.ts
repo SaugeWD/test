@@ -488,7 +488,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       
       const usersMap = new Map<string, any>();
       for (const userId of userIds) {
-        const user = await storage.getUserById(userId);
+        const user = await storage.getUser(userId);
         if (user) usersMap.set(userId, user);
       }
       
