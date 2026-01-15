@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
@@ -9,6 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Building2,
   User,
@@ -26,7 +31,9 @@ import {
   Clock,
   Heart,
   MessageSquare,
-  Send
+  Send,
+  DollarSign,
+  ExternalLink
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { VerificationBadge } from "@/components/VerificationBadge";
@@ -86,6 +93,78 @@ export default function Dashboard() {
       toast({ title: "Request failed", variant: "destructive" });
     },
   });
+
+  // Job creation form state
+  const [jobDialogOpen, setJobDialogOpen] = useState(false);
+  const [jobTitle, setJobTitle] = useState("");
+  const [jobCompany, setJobCompany] = useState("");
+  const [jobLocation, setJobLocation] = useState("");
+  const [jobType, setJobType] = useState("full-time");
+  const [jobDescription, setJobDescription] = useState("");
+  const [jobRequirements, setJobRequirements] = useState("");
+  const [jobSalary, setJobSalary] = useState("");
+  const [jobApplicationUrl, setJobApplicationUrl] = useState("");
+  const [jobDeadline, setJobDeadline] = useState("");
+
+  const createJobMutation = useMutation({
+    mutationFn: async (data: {
+      title: string;
+      company: string;
+      location?: string;
+      type?: string;
+      description?: string;
+      requirements?: string;
+      salary?: string;
+      applicationUrl?: string;
+      deadline?: string;
+    }) => {
+      return await apiRequest("POST", "/api/jobs", {
+        ...data,
+        postedById: user?.id,
+        deadline: data.deadline ? new Date(data.deadline) : undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job posted successfully!", description: "Your job listing is now live." });
+      setJobDialogOpen(false);
+      resetJobForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to post job", description: error.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const resetJobForm = () => {
+    setJobTitle("");
+    setJobCompany("");
+    setJobLocation("");
+    setJobType("full-time");
+    setJobDescription("");
+    setJobRequirements("");
+    setJobSalary("");
+    setJobApplicationUrl("");
+    setJobDeadline("");
+  };
+
+  const handleCreateJob = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!jobTitle.trim() || !jobCompany.trim()) {
+      toast({ title: "Missing required fields", description: "Title and Company are required.", variant: "destructive" });
+      return;
+    }
+    createJobMutation.mutate({
+      title: jobTitle.trim(),
+      company: jobCompany.trim(),
+      location: jobLocation.trim() || undefined,
+      type: jobType,
+      description: jobDescription.trim() || undefined,
+      requirements: jobRequirements.trim() || undefined,
+      salary: jobSalary.trim() || undefined,
+      applicationUrl: jobApplicationUrl.trim() || undefined,
+      deadline: jobDeadline || undefined,
+    });
+  };
 
   if (authLoading) {
     return (
@@ -248,11 +327,9 @@ export default function Dashboard() {
                   </Button>
 
                   {user.role === "firm" && (
-                    <Button variant="outline" className="w-full justify-start" asChild data-testid="button-post-job">
-                      <Link href="/jobs">
-                        <Briefcase className="mr-2 h-4 w-4" />
-                        Post New Job
-                      </Link>
+                    <Button variant="outline" className="w-full justify-start" onClick={() => setJobDialogOpen(true)} data-testid="button-post-job">
+                      <Briefcase className="mr-2 h-4 w-4" />
+                      Post New Job
                     </Button>
                   )}
 
@@ -502,12 +579,178 @@ export default function Dashboard() {
                             </CardTitle>
                             <CardDescription>Job postings from your firm</CardDescription>
                           </div>
-                          <Button size="sm" asChild data-testid="button-new-job">
-                            <Link href="/jobs">
-                              <Plus className="mr-2 h-4 w-4" />
-                              Post Job
-                            </Link>
-                          </Button>
+                          <Dialog open={jobDialogOpen} onOpenChange={setJobDialogOpen}>
+                            <DialogTrigger asChild>
+                              <Button size="sm" data-testid="button-new-job">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Post Job
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                              <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                  <Briefcase className="h-5 w-5" />
+                                  Post a New Job
+                                </DialogTitle>
+                                <DialogDescription>
+                                  Create a job listing to find qualified architects and designers
+                                </DialogDescription>
+                              </DialogHeader>
+                              <form onSubmit={handleCreateJob} className="space-y-4 mt-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="jobTitle">Job Title *</Label>
+                                    <Input
+                                      id="jobTitle"
+                                      placeholder="e.g. Senior Architect"
+                                      value={jobTitle}
+                                      onChange={(e) => setJobTitle(e.target.value)}
+                                      required
+                                      data-testid="input-job-title"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="jobCompany">Company Name *</Label>
+                                    <div className="relative">
+                                      <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                                      <Input
+                                        id="jobCompany"
+                                        placeholder="Your company name"
+                                        className="pl-10"
+                                        value={jobCompany}
+                                        onChange={(e) => setJobCompany(e.target.value)}
+                                        required
+                                        data-testid="input-job-company"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="jobLocation">Location</Label>
+                                    <div className="relative">
+                                      <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                                      <Input
+                                        id="jobLocation"
+                                        placeholder="e.g. Amman, Jordan"
+                                        className="pl-10"
+                                        value={jobLocation}
+                                        onChange={(e) => setJobLocation(e.target.value)}
+                                        data-testid="input-job-location"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="jobType">Job Type</Label>
+                                    <Select value={jobType} onValueChange={setJobType}>
+                                      <SelectTrigger data-testid="select-job-type">
+                                        <SelectValue placeholder="Select type" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="full-time">Full-time</SelectItem>
+                                        <SelectItem value="part-time">Part-time</SelectItem>
+                                        <SelectItem value="internship">Internship</SelectItem>
+                                        <SelectItem value="freelance">Freelance</SelectItem>
+                                        <SelectItem value="contract">Contract</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="jobSalary">Salary Range</Label>
+                                    <div className="relative">
+                                      <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                                      <Input
+                                        id="jobSalary"
+                                        placeholder="e.g. 800-1200 JOD/month"
+                                        className="pl-10"
+                                        value={jobSalary}
+                                        onChange={(e) => setJobSalary(e.target.value)}
+                                        data-testid="input-job-salary"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="jobDeadline">Application Deadline</Label>
+                                    <div className="relative">
+                                      <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                                      <Input
+                                        id="jobDeadline"
+                                        type="date"
+                                        className="pl-10"
+                                        value={jobDeadline}
+                                        onChange={(e) => setJobDeadline(e.target.value)}
+                                        data-testid="input-job-deadline"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label htmlFor="jobDescription">Job Description</Label>
+                                  <Textarea
+                                    id="jobDescription"
+                                    placeholder="Describe the role, responsibilities, and what makes this opportunity exciting..."
+                                    className="min-h-[100px]"
+                                    value={jobDescription}
+                                    onChange={(e) => setJobDescription(e.target.value)}
+                                    data-testid="textarea-job-description"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label htmlFor="jobRequirements">Requirements</Label>
+                                  <Textarea
+                                    id="jobRequirements"
+                                    placeholder="List required qualifications, skills, and experience..."
+                                    className="min-h-[100px]"
+                                    value={jobRequirements}
+                                    onChange={(e) => setJobRequirements(e.target.value)}
+                                    data-testid="textarea-job-requirements"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label htmlFor="jobApplicationUrl">Application URL (optional)</Label>
+                                  <div className="relative">
+                                    <ExternalLink className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                                    <Input
+                                      id="jobApplicationUrl"
+                                      type="url"
+                                      placeholder="https://yourcompany.com/careers/apply"
+                                      className="pl-10"
+                                      value={jobApplicationUrl}
+                                      onChange={(e) => setJobApplicationUrl(e.target.value)}
+                                      data-testid="input-job-application-url"
+                                    />
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">External link where candidates can apply</p>
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-4 border-t">
+                                  <Button type="button" variant="outline" onClick={() => setJobDialogOpen(false)}>
+                                    Cancel
+                                  </Button>
+                                  <Button type="submit" disabled={createJobMutation.isPending} data-testid="button-submit-job">
+                                    {createJobMutation.isPending ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Posting...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Briefcase className="mr-2 h-4 w-4" />
+                                        Post Job
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              </form>
+                            </DialogContent>
+                          </Dialog>
                         </CardHeader>
                         <CardContent>
                           {jobsLoading ? (
