@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { MessageCircle, Send, Search, Loader2 } from "lucide-react";
+import { MessageCircle, Send, Search, Loader2, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -136,7 +137,15 @@ export function MessagingPanel() {
         {!selectedConversation ? (
           <>
             <SheetHeader className="p-6 pb-4">
-              <SheetTitle>Messages</SheetTitle>
+              <div className="flex items-center justify-between">
+                <SheetTitle>Messages</SheetTitle>
+                <Button variant="ghost" size="sm" asChild data-testid="link-full-messages">
+                  <Link href="/messages">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Open Full
+                  </Link>
+                </Button>
+              </div>
               <div className="relative mt-4">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input placeholder="Search conversations..." className="pl-9" />
