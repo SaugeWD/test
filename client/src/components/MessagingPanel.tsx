@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageCircle, Send, Search, Loader2, ExternalLink } from "lucide-react";
+import { MessageCircle, Send, Search, Loader2, ExternalLink, Heart, Edit, Trash2, Reply, MoreVertical, Check, CheckCheck, X } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,17 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/context/AuthContext";
+import { cn } from "@/lib/utils";
 import type { Message as DBMessage } from "@shared/schema";
 
 interface ConversationFromAPI {
@@ -38,13 +46,6 @@ interface Conversation {
   unread: number;
 }
 
-interface DisplayMessage {
-  id: string;
-  sender: "me" | "them";
-  content: string;
-  timestamp: string;
-}
-
 function formatTimeAgo(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -66,6 +67,9 @@ export function MessagingPanel() {
   const { user: currentUser } = useAuth();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
+  const [replyToMessage, setReplyToMessage] = useState<DBMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<DBMessage | null>(null);
+  const [editText, setEditText] = useState("");
 
   const { data: conversationsData, isLoading: loadingConversations } = useQuery<ConversationFromAPI[]>({
     queryKey: ["/api/messages/conversations"],
@@ -92,20 +96,55 @@ export function MessagingPanel() {
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0);
 
-  const displayMessages: DisplayMessage[] = (selectedMessages || []).map((msg) => ({
-    id: msg.id,
-    sender: msg.senderId === currentUser?.id ? "me" : "them",
-    content: msg.content,
-    timestamp: msg.createdAt ? formatMessageTime(new Date(msg.createdAt)) : "",
-  }));
-
   const sendMutation = useMutation({
-    mutationFn: async (data: { receiverId: string; content: string }) => {
+    mutationFn: async (data: { receiverId: string; content: string; replyToId?: string | null }) => {
       await apiRequest("POST", "/api/messages", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+      if (selectedConversation) {
+        queryClient.invalidateQueries({ queryKey: ["/api/messages", selectedConversation.user.id] });
+      }
+      setNewMessage("");
+      setReplyToMessage(null);
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: async (data: { id: string; content: string }) => {
+      const response = await apiRequest("PATCH", `/api/messages/${data.id}`, { content: data.content });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+      if (selectedConversation) {
+        queryClient.invalidateQueries({ queryKey: ["/api/messages", selectedConversation.user.id] });
+      }
+      setEditingMessage(null);
+      setEditText("");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/messages/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+      if (selectedConversation) {
+        queryClient.invalidateQueries({ queryKey: ["/api/messages", selectedConversation.user.id] });
+      }
+    },
+  });
+
+  const likeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/messages/${id}/like`);
+      return response.json();
+    },
+    onSuccess: () => {
       if (selectedConversation) {
         queryClient.invalidateQueries({ queryKey: ["/api/messages", selectedConversation.user.id] });
       }
@@ -116,9 +155,30 @@ export function MessagingPanel() {
     if (!newMessage.trim() || !selectedConversation) return;
     sendMutation.mutate({ 
       receiverId: selectedConversation.user.id, 
-      content: newMessage 
+      content: newMessage,
+      replyToId: replyToMessage?.id || null,
     });
-    setNewMessage("");
+  };
+
+  const handleEditMessage = () => {
+    if (!editText.trim() || !editingMessage) return;
+    editMutation.mutate({
+      id: editingMessage.id,
+      content: editText,
+    });
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    deleteMutation.mutate(messageId);
+  };
+
+  const handleLikeMessage = (messageId: string) => {
+    likeMutation.mutate(messageId);
+  };
+
+  const getReplyToContent = (replyToId: string | null): DBMessage | undefined => {
+    if (!replyToId || !selectedMessages) return undefined;
+    return selectedMessages.find((m) => m.id === replyToId);
   };
 
   return (
@@ -210,7 +270,12 @@ export function MessagingPanel() {
         ) : (
           <div className="flex h-full flex-col">
             <div className="flex items-center gap-3 border-b p-4">
-              <Button variant="ghost" size="sm" onClick={() => setSelectedConversation(null)}>
+              <Button variant="ghost" size="sm" onClick={() => {
+                setSelectedConversation(null);
+                setReplyToMessage(null);
+                setEditingMessage(null);
+                setEditText("");
+              }}>
                 Back
               </Button>
               <Avatar className="h-10 w-10">
@@ -230,29 +295,233 @@ export function MessagingPanel() {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-              ) : displayMessages.length === 0 ? (
+              ) : (selectedMessages || []).length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground">
                   <p>No messages yet. Start the conversation!</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {displayMessages.map((message) => (
-                    <div key={message.id} className={`flex ${message.sender === "me" ? "justify-end" : "justify-start"}`}>
+                  {(selectedMessages || []).map((message) => {
+                    const isOwn = message.senderId === currentUser?.id;
+                    const isDeleted = message.isDeleted;
+                    const isEdited = message.isEdited;
+                    const replyTo = getReplyToContent(message.replyToId);
+                    const likedBy = message.likedBy || [];
+                    const isLiked = currentUser ? likedBy.includes(currentUser.id) : false;
+                    const likeCount = likedBy.length;
+
+                    return (
                       <div
-                        className={`max-w-[80%] rounded-lg p-3 ${
-                          message.sender === "me" ? "bg-accent text-accent-foreground" : "bg-secondary"
-                        }`}
+                        key={message.id}
+                        className={cn(
+                          "flex gap-2 group",
+                          isOwn && "flex-row-reverse"
+                        )}
                       >
-                        <p className="text-sm">{message.content}</p>
-                        <p className="mt-1 text-xs opacity-70">{message.timestamp}</p>
+                        <div
+                          className={cn(
+                            "flex flex-col gap-1 max-w-[80%]",
+                            isOwn && "items-end"
+                          )}
+                        >
+                          {replyTo && (
+                            <div className={cn(
+                              "text-xs px-2 py-1 rounded border-l-2 border-accent/50 bg-accent/5 mb-1 max-w-full",
+                              isOwn ? "text-right" : "text-left"
+                            )}>
+                              <span className="text-muted-foreground text-[10px]">
+                                Replying to: 
+                              </span>
+                              <p className="truncate text-muted-foreground italic text-[10px]">
+                                {replyTo.isDeleted ? "This message was deleted" : replyTo.content}
+                              </p>
+                            </div>
+                          )}
+
+                          {editingMessage?.id === message.id ? (
+                            <div className="flex flex-col gap-2 w-full min-w-[180px]">
+                              <Textarea
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                className="min-h-[50px] resize-none text-sm"
+                                data-testid="input-edit-message-panel"
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setEditingMessage(null);
+                                    setEditText("");
+                                  }}
+                                  data-testid="button-cancel-edit-panel"
+                                >
+                                  <X className="h-3 w-3 mr-1" />
+                                  Cancel
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={handleEditMessage}
+                                  disabled={editMutation.isPending || !editText.trim()}
+                                  data-testid="button-save-edit-panel"
+                                >
+                                  {editMutation.isPending ? (
+                                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                  ) : (
+                                    <Check className="h-3 w-3 mr-1" />
+                                  )}
+                                  Save
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-start gap-1 relative">
+                              <div
+                                className={cn(
+                                  "rounded-lg px-3 py-2",
+                                  isOwn
+                                    ? "bg-accent text-accent-foreground"
+                                    : "bg-secondary",
+                                  isDeleted && "opacity-60",
+                                  likeCount > 0 && "mb-3"
+                                )}
+                              >
+                                <p className={cn(
+                                  "text-sm leading-relaxed",
+                                  isDeleted && "italic"
+                                )}>
+                                  {message.content}
+                                </p>
+                              </div>
+
+                              {!isDeleted && (
+                                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                      "h-5 w-5",
+                                      isLiked && "text-red-500"
+                                    )}
+                                    onClick={() => handleLikeMessage(message.id)}
+                                    disabled={likeMutation.isPending}
+                                    data-testid={`button-like-panel-${message.id}`}
+                                  >
+                                    <Heart className={cn("h-3 w-3", isLiked && "fill-current")} />
+                                  </Button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5"
+                                        data-testid={`button-message-menu-panel-${message.id}`}
+                                      >
+                                        <MoreVertical className="h-3 w-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align={isOwn ? "end" : "start"}>
+                                      <DropdownMenuItem
+                                        onClick={() => setReplyToMessage(message)}
+                                        data-testid={`button-reply-panel-${message.id}`}
+                                      >
+                                        <Reply className="mr-2 h-4 w-4" />
+                                        Reply
+                                      </DropdownMenuItem>
+                                      {isOwn && (
+                                        <>
+                                          <DropdownMenuItem
+                                            onClick={() => {
+                                              setEditingMessage(message);
+                                              setEditText(message.content);
+                                            }}
+                                            data-testid={`button-edit-panel-${message.id}`}
+                                          >
+                                            <Edit className="mr-2 h-4 w-4" />
+                                            Edit
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            onClick={() => handleDeleteMessage(message.id)}
+                                            className="text-destructive"
+                                            disabled={deleteMutation.isPending}
+                                            data-testid={`button-delete-panel-${message.id}`}
+                                          >
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Delete
+                                          </DropdownMenuItem>
+                                        </>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              )}
+                              {likeCount > 0 && (
+                                <div className={cn(
+                                  "absolute -bottom-2 px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 text-[10px] flex items-center gap-0.5",
+                                  isOwn ? "left-0" : "right-0"
+                                )}>
+                                  <Heart className="h-2.5 w-2.5 fill-current" />
+                                  {likeCount}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className={cn(
+                            "flex items-center gap-1 px-1",
+                            isOwn ? "flex-row-reverse" : "flex-row"
+                          )}>
+                            <span className="text-[10px] text-muted-foreground">
+                              {message.createdAt
+                                ? formatMessageTime(new Date(message.createdAt))
+                                : ""}
+                            </span>
+                            {isEdited && !isDeleted && (
+                              <span className="text-[10px] text-muted-foreground italic">
+                                (edited)
+                              </span>
+                            )}
+                            {isOwn && !isDeleted && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {message.isRead ? (
+                                  <CheckCheck className="h-3 w-3 text-accent" />
+                                ) : (
+                                  <Check className="h-3 w-3" />
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </ScrollArea>
 
             <div className="border-t p-4">
+              {replyToMessage && (
+                <div className="mb-2 p-2 bg-accent/10 rounded-lg flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Replying to:
+                    </p>
+                    <p className="text-sm truncate">
+                      {replyToMessage.content}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 flex-shrink-0"
+                    onClick={() => setReplyToMessage(null)}
+                    data-testid="button-cancel-reply-panel"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
               <div className="flex gap-2">
                 <Textarea
                   placeholder="Type a message..."
