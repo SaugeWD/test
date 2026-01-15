@@ -62,6 +62,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [showEmailPublicly, setShowEmailPublicly] = useState(false);
   const [allowMessagesFromNonConnections, setAllowMessagesFromNonConnections] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -264,6 +265,49 @@ export default function SettingsPage() {
                 <CardContent>
                   <Form {...profileForm}>
                     <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
+                      <div className="space-y-4">
+                        <div className="relative overflow-hidden rounded-lg h-32 bg-muted">
+                          {coverPreview || user.coverImage ? (
+                            <img 
+                              src={coverPreview || user.coverImage || ""} 
+                              alt="Cover" 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full bg-gradient-to-r from-accent/20 to-primary/20" />
+                          )}
+                          <div className="absolute inset-0 bg-black/20" />
+                          <Label htmlFor="cover" className="absolute bottom-2 right-2 cursor-pointer">
+                            <div className="flex items-center gap-2 rounded-md bg-background/80 backdrop-blur-sm px-3 py-1.5 text-sm hover-elevate">
+                              <Camera className="h-4 w-4" />
+                              Change Cover
+                            </div>
+                          </Label>
+                          <Input
+                            id="cover"
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setCoverPreview(reader.result as string);
+                                };
+                                reader.readAsDataURL(file);
+                                toast({
+                                  title: "Cover image selected",
+                                  description: "Cover image upload functionality will be available soon.",
+                                });
+                              }
+                            }}
+                            data-testid="input-cover"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">Cover image: Recommended size 1200x400px</p>
+                      </div>
+                      
                       <div className="flex items-center gap-6">
                         <Avatar className="h-24 w-24">
                           <AvatarImage src={avatarPreview || user.avatar || "/placeholder-user.jpg"} />

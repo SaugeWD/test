@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Calendar, Briefcase, Users, BookOpen, Folder, Settings, UserPlus, MessageSquare, Loader2, Heart, MessageCircle, FileText, Check, X, Clock, Bookmark, ExternalLink, Trash2, Trophy, MoreHorizontal, Newspaper, Edit } from "lucide-react";
+import { MapPin, Calendar, Briefcase, Users, BookOpen, Folder, Settings, UserPlus, MessageSquare, Loader2, Heart, MessageCircle, FileText, Check, X, Clock, Bookmark, ExternalLink, Trash2, Trophy, MoreHorizontal, Newspaper, Edit, Building2, GraduationCap, Camera, Globe, Phone, Award } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useState } from "react";
@@ -487,30 +487,162 @@ export default function ProfilePage() {
       <Navigation />
 
       <section className="relative border-b bg-secondary/30">
-        <div className="h-48 bg-gradient-to-r from-accent/20 to-primary/20" />
+        <div className="relative h-48 md:h-56 overflow-hidden">
+          {displayUser?.coverImage ? (
+            <img 
+              src={displayUser.coverImage} 
+              alt="Cover" 
+              className="w-full h-full object-cover"
+              data-testid="img-cover"
+            />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-r from-accent/20 to-primary/20" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+          {isOwnProfile && (
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              className="absolute bottom-3 right-3 bg-background/80 backdrop-blur-sm"
+              asChild
+              data-testid="button-edit-cover"
+            >
+              <Link href="/settings">
+                <Camera className="mr-2 h-4 w-4" />
+                Edit Cover
+              </Link>
+            </Button>
+          )}
+        </div>
         <div className="container mx-auto px-4">
           <div className="relative -mt-16 flex flex-col items-center pb-6 md:flex-row md:items-end md:justify-between">
             <div className="flex flex-col items-center md:flex-row md:items-end md:gap-6">
-              <Avatar className="h-32 w-32 border-4 border-background shadow-lg">
-                <AvatarImage src={displayUser?.avatar || "/placeholder-user.jpg"} />
-                <AvatarFallback className="text-3xl">{displayUser?.name?.[0] || "U"}</AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="h-32 w-32 border-4 border-background shadow-lg">
+                  <AvatarImage src={displayUser?.avatar || "/placeholder-user.jpg"} />
+                  <AvatarFallback className="text-3xl">{displayUser?.name?.[0] || "U"}</AvatarFallback>
+                </Avatar>
+                {isOwnProfile && (
+                  <Button 
+                    variant="secondary" 
+                    size="icon" 
+                    className="absolute bottom-0 right-0 h-8 w-8 rounded-full border-2 border-background"
+                    asChild
+                    data-testid="button-edit-avatar"
+                  >
+                    <Link href="/settings">
+                      <Camera className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                )}
+              </div>
               <div className="mt-4 text-center md:mt-0 md:text-left">
-                <div className="flex items-center justify-center gap-2 md:justify-start">
+                <div className="flex items-center justify-center gap-2 md:justify-start flex-wrap">
                   <h1 className="font-serif text-3xl font-bold">{displayUser?.name || "Guest User"}</h1>
                   {displayUser?.isVerified && <VerificationBadge type="architect" size="lg" />}
+                  {displayUser?.role && (
+                    <Badge 
+                      variant={displayUser.role === "admin" ? "default" : "secondary"}
+                      className="capitalize"
+                      data-testid="badge-role"
+                    >
+                      {displayUser.role === "firm" && <Building2 className="mr-1 h-3 w-3" />}
+                      {displayUser.role === "student" && <GraduationCap className="mr-1 h-3 w-3" />}
+                      {displayUser.role === "engineer" && <Briefcase className="mr-1 h-3 w-3" />}
+                      {displayUser.role}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-lg text-muted-foreground">{displayUser?.title || "Architecture Enthusiast"}</p>
-                <div className="mt-2 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground md:justify-start">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    {displayUser?.location || "Location not set"}
-                  </span>
+                
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-muted-foreground md:justify-start">
+                  {displayUser?.location && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-4 w-4" />
+                      {displayUser.location}
+                    </span>
+                  )}
+                  
+                  {displayUser?.role === "engineer" && displayUser?.workplace && (
+                    <span className="flex items-center gap-1" data-testid="text-workplace">
+                      <Building2 className="h-4 w-4" />
+                      {displayUser.workplace}
+                    </span>
+                  )}
+                  
+                  {displayUser?.role === "engineer" && displayUser?.yearsOfExperience && (
+                    <span className="flex items-center gap-1" data-testid="text-experience">
+                      <Award className="h-4 w-4" />
+                      {displayUser.yearsOfExperience} years experience
+                    </span>
+                  )}
+                  
+                  {displayUser?.role === "student" && displayUser?.university && (
+                    <span className="flex items-center gap-1" data-testid="text-university">
+                      <GraduationCap className="h-4 w-4" />
+                      {displayUser.university}
+                    </span>
+                  )}
+                  
+                  {displayUser?.role === "student" && displayUser?.yearOfStudy && (
+                    <span className="flex items-center gap-1" data-testid="text-year-of-study">
+                      Year {displayUser.yearOfStudy}
+                    </span>
+                  )}
+                  
+                  {displayUser?.role === "firm" && displayUser?.companySize && (
+                    <span className="flex items-center gap-1" data-testid="text-company-size">
+                      <Users className="h-4 w-4" />
+                      {displayUser.companySize} employees
+                    </span>
+                  )}
+                  
+                  {displayUser?.role === "firm" && displayUser?.foundedYear && (
+                    <span className="flex items-center gap-1" data-testid="text-founded">
+                      Est. {displayUser.foundedYear}
+                    </span>
+                  )}
+                  
                   <span className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
                     Joined {formatJoinDate(displayUser?.createdAt || null)}
                   </span>
                 </div>
+
+                {(displayUser?.website || displayUser?.phone || displayUser?.portfolioUrl) && (
+                  <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm md:justify-start">
+                    {displayUser?.website && (
+                      <a 
+                        href={displayUser.website.startsWith('http') ? displayUser.website : `https://${displayUser.website}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-primary hover:underline"
+                        data-testid="link-website"
+                      >
+                        <Globe className="h-4 w-4" />
+                        Website
+                      </a>
+                    )}
+                    {displayUser?.portfolioUrl && (
+                      <a 
+                        href={displayUser.portfolioUrl.startsWith('http') ? displayUser.portfolioUrl : `https://${displayUser.portfolioUrl}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-primary hover:underline"
+                        data-testid="link-portfolio"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Portfolio
+                      </a>
+                    )}
+                    {displayUser?.phone && (
+                      <span className="flex items-center gap-1 text-muted-foreground" data-testid="text-phone">
+                        <Phone className="h-4 w-4" />
+                        {displayUser.phone}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

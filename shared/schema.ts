@@ -24,6 +24,7 @@ export const users = pgTable("users", {
   bio: text("bio"),
   location: text("location"),
   avatar: text("avatar"),
+  coverImage: text("cover_image"),
   isVerified: boolean("is_verified").default(false),
   verificationType: verificationTypeEnum("verification_type"),
   // Firm-specific fields
