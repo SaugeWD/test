@@ -566,43 +566,30 @@ function JobCard({ job, user, toast, getTypeColor, formatPostedDate }: JobCardPr
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               {formatPostedDate(job.createdAt)}
             </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-job-menu-${job.id}`}>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {isAuthenticated && (
-                  <DropdownMenuItem onClick={() => saveMutation.mutate()}>
-                    <Bookmark className={cn("h-4 w-4 mr-2", isSaved && "fill-current")} />
-                    {isSaved ? "Unsave" : "Save"}
+            {isOwner && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-job-menu-${job.id}`}>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/jobs/${job.id}/edit`}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </Link>
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={handleShare}>
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share
-                </DropdownMenuItem>
-                {isOwner && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href={`/jobs/${job.id}/edit`}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => setDeleteDialogOpen(true)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <DropdownMenuItem 
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </CardHeader>
