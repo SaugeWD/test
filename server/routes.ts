@@ -3,7 +3,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { registerSchema, loginSchema, insertPostSchema, insertProjectSchema, insertCommentSchema, insertResearchSchema, insertNewsSchema, insertReportSchema, projects, research, news, users, posts, competitions, jobs } from "@shared/schema";
+import { registerSchema, loginSchema, insertPostSchema, insertProjectSchema, insertCommentSchema, insertResearchSchema, insertNewsSchema, insertReportSchema, insertJobSchema, insertCompetitionSchema, projects, research, news, users, posts, competitions, jobs } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { eq, sql, and } from "drizzle-orm";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -689,6 +689,27 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.post("/api/posts", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
+      const userRole = req.user!.role;
+      const postType = req.body.type || "text";
+      
+      // Role-based posting restrictions:
+      // Students can only post text (academic) content
+      // Engineers and Firms can post text and project (professional) content
+      if (userRole === "student") {
+        if (postType !== "text") {
+          return res.status(403).json({ 
+            message: "Students can only create academic (text) posts. Professional posts are reserved for engineers and firms." 
+          });
+        }
+      } else if (userRole === "engineer" || userRole === "firm") {
+        // Engineers and firms can post text and project types
+        if (!["text", "project"].includes(postType)) {
+          return res.status(403).json({ 
+            message: "This post type is not available for your account type." 
+          });
+        }
+      }
+      
       const result = insertPostSchema.safeParse({ ...req.body, authorId: req.user!.id });
       if (!result.success) {
         return res.status(400).json({ message: fromZodError(result.error).message });
@@ -742,6 +763,22 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.post("/api/projects", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
+      const userRole = req.user!.role;
+      
+      // Only engineers and firms can create projects (professional content)
+      // Students cannot create projects
+      if (userRole === "student") {
+        return res.status(403).json({ 
+          message: "Students cannot create projects. Projects are reserved for engineers and architectural firms." 
+        });
+      }
+      
+      if (userRole !== "engineer" && userRole !== "firm" && userRole !== "admin") {
+        return res.status(403).json({ 
+          message: "Only engineers and architectural firms can create projects." 
+        });
+      }
+      
       const result = insertProjectSchema.safeParse({ ...req.body, authorId: req.user!.id });
       if (!result.success) {
         return res.status(400).json({ message: fromZodError(result.error).message });
@@ -813,6 +850,29 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // Create competition - Only firms can create competitions
+  app.post("/api/competitions", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userRole = req.user!.role;
+      
+      // Only architectural firms can create competitions
+      if (userRole !== "firm" && userRole !== "admin") {
+        return res.status(403).json({ 
+          message: "Only architectural firms can create competitions." 
+        });
+      }
+      
+      const result = insertCompetitionSchema.safeParse({ ...req.body, submittedById: req.user!.id });
+      if (!result.success) {
+        return res.status(400).json({ message: fromZodError(result.error).message });
+      }
+      const competition = await storage.createCompetition(result.data);
+      res.status(201).json(competition);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create competition" });
+    }
+  });
+
   // ==================== BOOKS ROUTES ====================
 
   app.get("/api/books", async (req, res) => {
@@ -858,6 +918,29 @@ export async function registerRoutes(app: Express): Promise<void> {
       res.json(job);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch job" });
+    }
+  });
+
+  // Create job - Only firms can create job postings
+  app.post("/api/jobs", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userRole = req.user!.role;
+      
+      // Only architectural firms can post jobs
+      if (userRole !== "firm" && userRole !== "admin") {
+        return res.status(403).json({ 
+          message: "Only architectural firms can post job listings." 
+        });
+      }
+      
+      const result = insertJobSchema.safeParse({ ...req.body, postedById: req.user!.id });
+      if (!result.success) {
+        return res.status(400).json({ message: fromZodError(result.error).message });
+      }
+      const job = await storage.createJob(result.data);
+      res.status(201).json(job);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create job" });
     }
   });
 
@@ -1012,6 +1095,22 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.post("/api/news", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
+      const userRole = req.user!.role;
+      
+      // Only engineers and firms can create news and events
+      // Students cannot create news/events
+      if (userRole === "student") {
+        return res.status(403).json({ 
+          message: "Students cannot create news or events. This feature is reserved for engineers and architectural firms." 
+        });
+      }
+      
+      if (userRole !== "engineer" && userRole !== "firm" && userRole !== "admin") {
+        return res.status(403).json({ 
+          message: "Only engineers and architectural firms can create news and events." 
+        });
+      }
+      
       // Convert date strings to Date objects for timestamp fields
       const processedBody = {
         ...req.body,

@@ -94,16 +94,21 @@ interface FeedPost {
 
 function CreatePostDialog() {
   const [isOpen, setIsOpen] = useState(false);
-  const [postType, setPostType] = useState<"text" | "project" | "competition">("text");
+  const [postType, setPostType] = useState<"text" | "project">("text");
   const [content, setContent] = useState("");
   const [projectTitle, setProjectTitle] = useState("");
-  const [competitionLink, setCompetitionLink] = useState("");
   const [tags, setTags] = useState("");
   const { user } = useAuth();
+  
+  // Role-based posting restrictions:
+  // Students can only post text (academic) content
+  // Engineers and Firms can post text and project (professional) content
+  const isStudent = user?.role === "student";
+  const canPostProjects = user?.role === "engineer" || user?.role === "firm" || user?.role === "admin";
 
   const createPostMutation = useMutation({
     mutationFn: async (data: {
-      type: "text" | "project" | "competition";
+      type: "text" | "project";
       content: string;
       title?: string;
       tags?: string[];
@@ -117,7 +122,6 @@ function CreatePostDialog() {
       setIsOpen(false);
       setContent("");
       setProjectTitle("");
-      setCompetitionLink("");
       setTags("");
       setPostType("text");
     },
@@ -158,14 +162,12 @@ function CreatePostDialog() {
                     <FileText className="h-4 w-4" />
                     Text
                   </Button>
-                  <Button variant="ghost" size="sm" className="gap-2" data-testid="button-post-type-project">
-                    <Building2 className="h-4 w-4" />
-                    Project
-                  </Button>
-                  <Button variant="ghost" size="sm" className="gap-2" data-testid="button-post-type-competition">
-                    <Trophy className="h-4 w-4" />
-                    Competition
-                  </Button>
+                  {canPostProjects && (
+                    <Button variant="ghost" size="sm" className="gap-2" data-testid="button-post-type-project">
+                      <Building2 className="h-4 w-4" />
+                      Project
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -189,25 +191,23 @@ function CreatePostDialog() {
                 <FileText className="mr-2 h-4 w-4" />
                 Text
               </Button>
-              <Button
-                variant={postType === "project" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPostType("project")}
-                data-testid="dialog-button-type-project"
-              >
-                <Building2 className="mr-2 h-4 w-4" />
-                Project
-              </Button>
-              <Button
-                variant={postType === "competition" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPostType("competition")}
-                data-testid="dialog-button-type-competition"
-              >
-                <Trophy className="mr-2 h-4 w-4" />
-                Competition
-              </Button>
+              {canPostProjects && (
+                <Button
+                  variant={postType === "project" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setPostType("project")}
+                  data-testid="dialog-button-type-project"
+                >
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Project
+                </Button>
+              )}
             </div>
+            {isStudent && (
+              <p className="text-xs text-muted-foreground mt-2">
+                As a student, you can create academic text posts. Professional project posts are available for engineers and firms.
+              </p>
+            )}
           </div>
 
           {postType === "project" && (

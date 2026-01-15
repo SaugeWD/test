@@ -311,6 +311,9 @@ function AddProjectDialog() {
   const { user } = useAuth();
   const { toast } = useToast();
   const isStudent = user?.role === "student";
+  
+  // Only engineers, firms, and admins can create projects
+  const canCreateProjects = user?.role === "engineer" || user?.role === "firm" || user?.role === "admin";
 
   const [mainImage, setMainImage] = useState<string[]>([]);
   const [additionalImages, setAdditionalImages] = useState<string[]>([]);
@@ -372,6 +375,11 @@ function AddProjectDialog() {
   const onSubmit = (values: ProjectFormValues) => {
     createProjectMutation.mutate(values);
   };
+
+  // Don't render the dialog if user can't create projects
+  if (!canCreateProjects) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

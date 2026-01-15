@@ -1408,9 +1408,11 @@ export default function NewsPage() {
             <p className="mt-4 text-lg text-muted-foreground text-pretty">
               Stay updated with the latest architecture news, industry updates, and upcoming events in Jordan
             </p>
-            <div className="mt-6">
-              <NewsSubmitDialog />
-            </div>
+            {(user?.role === "engineer" || user?.role === "firm" || user?.role === "admin") && (
+              <div className="mt-6">
+                <NewsSubmitDialog />
+              </div>
+            )}
           </div>
         </div>
       </section>
