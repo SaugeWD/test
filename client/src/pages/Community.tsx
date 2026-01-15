@@ -58,6 +58,9 @@ interface UnifiedFeedItem {
   isEvent?: boolean;
   eventDate?: string;
   eventLocation?: string;
+  year?: string;
+  language?: string;
+  projectType?: string;
 }
 
 const categories = ["All Topics", "Sustainability", "Software", "Regulations", "Competitions", "Career", "Design"];
@@ -340,137 +343,204 @@ export default function CommunityPage() {
                     ) : (
                       filteredDiscussions.map((discussion: UnifiedFeedItem) => {
                         const detailLink = getDetailLink(discussion);
+                        const hasImage = discussion.images && discussion.images.length > 0;
+                        const featuredImage = hasImage ? discussion.images![0] : null;
+                        
                         return (
                         <Card 
                           key={discussion.id} 
-                          className="hover-elevate"
+                          className="hover-elevate overflow-hidden"
                           data-testid={`card-discussion-${discussion.id}`}
                         >
-                          <CardHeader>
-                            <div className="flex items-start gap-4">
+                          {featuredImage && (
+                            <div className="relative">
+                              {detailLink ? (
+                                <Link href={detailLink}>
+                                  <div className="aspect-video w-full overflow-hidden bg-muted">
+                                    <img 
+                                      src={featuredImage} 
+                                      alt={discussion.title || ""}
+                                      className="w-full h-full object-cover transition-transform hover:scale-105"
+                                    />
+                                  </div>
+                                </Link>
+                              ) : (
+                                <div className="aspect-video w-full overflow-hidden bg-muted">
+                                  <img 
+                                    src={featuredImage} 
+                                    alt={discussion.title || ""}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              )}
+                              <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+                                <Link href={getFeedTypePageLink(discussion)} onClick={(e) => e.stopPropagation()} data-testid={`link-feedtype-${discussion.id}`}>
+                                  <Badge variant={getFeedTypeVariant(discussion.feedType)} className="capitalize cursor-pointer hover:opacity-80 transition-opacity shadow-sm" data-testid={`badge-feedtype-${discussion.id}`}>
+                                    {getFeedTypeIcon(discussion.feedType)}
+                                    {getFeedTypeLabel(discussion)}
+                                  </Badge>
+                                </Link>
+                                {discussion.category && (
+                                  <Link href={`/community?category=${encodeURIComponent(discussion.category)}`} onClick={(e) => e.stopPropagation()}>
+                                    <Badge variant="secondary" className="cursor-pointer hover:opacity-80 transition-opacity shadow-sm" data-testid={`badge-tag-${discussion.id}`}>{discussion.category}</Badge>
+                                  </Link>
+                                )}
+                              </div>
+                              {discussion.images && discussion.images.length > 1 && (
+                                <div className="absolute bottom-3 right-3">
+                                  <Badge variant="secondary" className="shadow-sm">
+                                    <FileText className="h-3 w-3 mr-1" />
+                                    {discussion.images.length} images
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          <CardHeader className={featuredImage ? "pt-4" : ""}>
+                            {!featuredImage && (
+                              <div className="mb-3 flex flex-wrap items-center gap-2">
+                                <Link href={getFeedTypePageLink(discussion)} onClick={(e) => e.stopPropagation()} data-testid={`link-feedtype-${discussion.id}`}>
+                                  <Badge variant={getFeedTypeVariant(discussion.feedType)} className="capitalize cursor-pointer hover:opacity-80 transition-opacity" data-testid={`badge-feedtype-${discussion.id}`}>
+                                    {getFeedTypeIcon(discussion.feedType)}
+                                    {getFeedTypeLabel(discussion)}
+                                  </Badge>
+                                </Link>
+                                {discussion.category && (
+                                  <Link href={`/community?category=${encodeURIComponent(discussion.category)}`} onClick={(e) => e.stopPropagation()}>
+                                    <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity" data-testid={`badge-tag-${discussion.id}`}>{discussion.category}</Badge>
+                                  </Link>
+                                )}
+                              </div>
+                            )}
+                            
+                            <CardTitle className="text-lg leading-tight" data-testid={`text-title-${discussion.id}`}>
+                              {detailLink ? (
+                                <Link href={detailLink} className="text-left hover:text-accent transition-colors line-clamp-2">
+                                  {discussion.title || discussion.content?.substring(0, 100)}
+                                </Link>
+                              ) : (
+                                <span className="text-left line-clamp-2">
+                                  {discussion.title || discussion.content?.substring(0, 100)}
+                                </span>
+                              )}
+                            </CardTitle>
+                            
+                            <div className="flex items-center gap-3 mt-3">
                               {discussion.author?.username ? (
                                 <Link href={`/profile/${discussion.author.username}`}>
-                                  <Avatar className="cursor-pointer" data-testid={`avatar-${discussion.author.username || discussion.id}`}>
+                                  <Avatar className="h-8 w-8 cursor-pointer" data-testid={`avatar-${discussion.author.username || discussion.id}`}>
                                     {discussion.author?.avatar && <AvatarImage src={discussion.author.avatar} />}
-                                    <AvatarFallback>{getInitials(discussion.author?.name || 'U')}</AvatarFallback>
+                                    <AvatarFallback className="text-xs">{getInitials(discussion.author?.name || 'U')}</AvatarFallback>
                                   </Avatar>
                                 </Link>
                               ) : (
-                                <Avatar data-testid={`avatar-${discussion.id}`}>
-                                  <AvatarFallback>{getInitials(discussion.author?.name || 'U')}</AvatarFallback>
+                                <Avatar className="h-8 w-8" data-testid={`avatar-${discussion.id}`}>
+                                  <AvatarFallback className="text-xs">{getInitials(discussion.author?.name || 'U')}</AvatarFallback>
                                 </Avatar>
                               )}
                               <div className="flex-1 min-w-0">
-                                <div className="mb-2 flex flex-wrap items-center gap-2">
-                                  <Link href={getFeedTypePageLink(discussion)} onClick={(e) => e.stopPropagation()} data-testid={`link-feedtype-${discussion.id}`}>
-                                    <Badge variant={getFeedTypeVariant(discussion.feedType)} className="capitalize cursor-pointer hover:opacity-80 transition-opacity" data-testid={`badge-feedtype-${discussion.id}`}>
-                                      {getFeedTypeIcon(discussion.feedType)}
-                                      {getFeedTypeLabel(discussion)}
-                                    </Badge>
-                                  </Link>
-                                  {discussion.category && (
-                                    <Link href={`/community?category=${encodeURIComponent(discussion.category)}`} onClick={(e) => e.stopPropagation()}>
-                                      <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity" data-testid={`badge-tag-${discussion.id}`}>{discussion.category}</Badge>
-                                    </Link>
-                                  )}
-                                  <span className="text-xs text-muted-foreground" data-testid={`text-time-${discussion.id}`}>
-                                    <Clock className="inline h-3 w-3 mr-1" />
-                                    {getTimeAgo(discussion.createdAt)}
-                                  </span>
-                                </div>
-                                <CardTitle className="text-lg" data-testid={`text-title-${discussion.id}`}>
-                                  {detailLink ? (
-                                    <Link href={detailLink} className="text-left hover:text-accent transition-colors">
-                                      {discussion.title || discussion.content?.substring(0, 100)}
-                                    </Link>
-                                  ) : (
-                                    <span className="text-left">
-                                      {discussion.title || discussion.content?.substring(0, 100)}
-                                    </span>
-                                  )}
-                                </CardTitle>
-                                <CardDescription className="mt-1">
+                                <div className="flex items-center gap-2">
                                   {discussion.author?.username ? (
                                     <Link
                                       href={`/profile/${discussion.author.username}`}
-                                      className="font-semibold hover:text-accent transition-colors"
+                                      className="text-sm font-medium hover:text-accent transition-colors truncate"
                                       data-testid={`link-author-${discussion.id}`}
                                     >
                                       {discussion.author?.name || 'Unknown'}
                                     </Link>
                                   ) : (
-                                    <span className="font-semibold" data-testid={`link-author-${discussion.id}`}>
+                                    <span className="text-sm font-medium truncate" data-testid={`link-author-${discussion.id}`}>
                                       {discussion.author?.name || 'Unknown'}
                                     </span>
                                   )}
-                                </CardDescription>
+                                  {discussion.author?.isVerified && (
+                                    <Badge variant="outline" className="text-xs px-1.5 py-0">Verified</Badge>
+                                  )}
+                                </div>
+                                <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid={`text-time-${discussion.id}`}>
+                                  <Clock className="h-3 w-3" />
+                                  {getTimeAgo(discussion.createdAt)}
+                                </span>
                               </div>
                             </div>
                           </CardHeader>
-                          <CardContent>
-                            {(discussion.location || discussion.company || discussion.deadline || discussion.prize || discussion.university || discussion.eventLocation || discussion.eventDate) && (
-                              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mb-3">
+                          
+                          <CardContent className="pt-0">
+                            {(discussion.location || discussion.company || discussion.deadline || discussion.prize || discussion.university || discussion.eventLocation || discussion.eventDate || discussion.year) && (
+                              <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground mb-3 pb-3 border-b">
+                                {discussion.year && (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="h-4 w-4 text-accent" />
+                                    {discussion.year}
+                                  </span>
+                                )}
                                 {discussion.company && (
                                   <span className="flex items-center gap-1">
-                                    <Building2 className="h-4 w-4" />
+                                    <Building2 className="h-4 w-4 text-accent" />
                                     {discussion.company}
                                   </span>
                                 )}
                                 {discussion.location && (
                                   <span className="flex items-center gap-1">
-                                    <MapPin className="h-4 w-4" />
+                                    <MapPin className="h-4 w-4 text-accent" />
                                     {discussion.location}
                                   </span>
                                 )}
                                 {discussion.university && (
                                   <span className="flex items-center gap-1">
-                                    <GraduationCap className="h-4 w-4" />
+                                    <GraduationCap className="h-4 w-4 text-accent" />
                                     {discussion.university}
                                   </span>
                                 )}
                                 {discussion.deadline && (
                                   <span className="flex items-center gap-1">
-                                    <Calendar className="h-4 w-4" />
+                                    <Calendar className="h-4 w-4 text-accent" />
                                     Deadline: {new Date(discussion.deadline).toLocaleDateString()}
                                   </span>
                                 )}
                                 {discussion.prize && (
                                   <span className="flex items-center gap-1">
-                                    <DollarSign className="h-4 w-4" />
+                                    <DollarSign className="h-4 w-4 text-accent" />
                                     {discussion.prize}
                                   </span>
                                 )}
                                 {discussion.eventDate && (
                                   <span className="flex items-center gap-1">
-                                    <Calendar className="h-4 w-4" />
+                                    <Calendar className="h-4 w-4 text-accent" />
                                     {new Date(discussion.eventDate).toLocaleDateString()}
                                   </span>
                                 )}
                                 {discussion.eventLocation && (
                                   <span className="flex items-center gap-1">
-                                    <MapPin className="h-4 w-4" />
+                                    <MapPin className="h-4 w-4 text-accent" />
                                     {discussion.eventLocation}
                                   </span>
                                 )}
                               </div>
                             )}
-                            <p className="mb-4 text-sm text-muted-foreground leading-relaxed" data-testid={`text-excerpt-${discussion.id}`}>
-                              {discussion.content?.substring(0, 200)}{discussion.content && discussion.content.length > 200 ? '...' : ''}
+                            
+                            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3" data-testid={`text-excerpt-${discussion.id}`}>
+                              {discussion.content?.substring(0, 250)}{discussion.content && discussion.content.length > 250 ? '...' : ''}
                             </p>
-                            {discussion.images && discussion.images.length > 0 && (
-                              <div className="mb-4 flex gap-2 overflow-x-auto">
-                                {discussion.images.slice(0, 3).map((img, idx) => (
-                                  <img key={idx} src={img} alt="" className="h-24 w-24 object-cover rounded-lg flex-shrink-0" />
+                            
+                            {discussion.tags && discussion.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-3">
+                                {discussion.tags.slice(0, 4).map((tag, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs">
+                                    #{tag}
+                                  </Badge>
                                 ))}
-                                {discussion.images.length > 3 && (
-                                  <div className="h-24 w-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                                    <span className="text-sm text-muted-foreground">+{discussion.images.length - 3}</span>
-                                  </div>
+                                {discussion.tags.length > 4 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{discussion.tags.length - 4} more
+                                  </Badge>
                                 )}
                               </div>
                             )}
-                            <div className="flex items-center justify-between border-t pt-4">
-                              <div className="flex items-center gap-4">
+                            
+                            <div className="flex items-center justify-between border-t pt-4 mt-4">
+                              <div className="flex items-center gap-2">
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -478,7 +548,7 @@ export default function CommunityPage() {
                                   className={likedPosts.has(Number(discussion.id)) ? "text-accent" : ""}
                                   data-testid={`button-like-${discussion.id}`}
                                 >
-                                  <Heart className={`h-4 w-4 mr-1 ${likedPosts.has(Number(discussion.id)) ? "fill-current" : ""}`} />
+                                  <Heart className={`h-4 w-4 mr-1.5 ${likedPosts.has(Number(discussion.id)) ? "fill-current" : ""}`} />
                                   <span>{(discussion.likesCount || 0) + (likedPosts.has(Number(discussion.id)) ? 1 : 0)}</span>
                                 </Button>
                                 <Button
@@ -486,19 +556,28 @@ export default function CommunityPage() {
                                   size="sm"
                                   data-testid={`button-comments-${discussion.id}`}
                                 >
-                                  <MessageSquare className="h-4 w-4 mr-1" />
+                                  <MessageSquare className="h-4 w-4 mr-1.5" />
                                   <span>{discussion.commentsCount || 0}</span>
                                 </Button>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleSave(Number(discussion.id))}
-                                className={savedPosts.has(Number(discussion.id)) ? "text-accent" : ""}
-                                data-testid={`button-save-${discussion.id}`}
-                              >
-                                <Bookmark className={`h-4 w-4 ${savedPosts.has(Number(discussion.id)) ? "fill-current" : ""}`} />
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleSave(Number(discussion.id))}
+                                  className={savedPosts.has(Number(discussion.id)) ? "text-accent" : ""}
+                                  data-testid={`button-save-${discussion.id}`}
+                                >
+                                  <Bookmark className={`h-4 w-4 ${savedPosts.has(Number(discussion.id)) ? "fill-current" : ""}`} />
+                                </Button>
+                                {detailLink && (
+                                  <Button variant="ghost" size="sm" asChild>
+                                    <Link href={detailLink}>
+                                      View Details
+                                    </Link>
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
