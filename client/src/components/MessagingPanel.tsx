@@ -278,12 +278,16 @@ export function MessagingPanel() {
               }}>
                 Back
               </Button>
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={selectedConversation.user.avatar || undefined} />
-                <AvatarFallback>{selectedConversation.user.name[0]}</AvatarFallback>
-              </Avatar>
+              <Link href={`/profile/${selectedConversation.user.id}`} className="hover:opacity-80 transition-opacity">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={selectedConversation.user.avatar || undefined} />
+                  <AvatarFallback>{selectedConversation.user.name[0]}</AvatarFallback>
+                </Avatar>
+              </Link>
               <div className="flex-1">
-                <p className="font-semibold text-sm">{selectedConversation.user.name}</p>
+                <Link href={`/profile/${selectedConversation.user.id}`} className="hover:underline">
+                  <p className="font-semibold text-sm">{selectedConversation.user.name}</p>
+                </Link>
                 <p className="text-xs text-muted-foreground">
                   {selectedConversation.user.online ? "Online" : "Offline"}
                 </p>
