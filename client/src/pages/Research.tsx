@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -71,8 +71,12 @@ const universities = [
 ];
 
 export default function ResearchPage() {
+  const urlSearchQuery = useSearch();
+  const urlParams = new URLSearchParams(urlSearchQuery);
+  const urlCategory = urlParams.get("category");
+  
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState(urlCategory || "all");
   const [selectedLanguage, setSelectedLanguage] = useState("all");
   const [selectedUniversity, setSelectedUniversity] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
@@ -81,6 +85,10 @@ export default function ResearchPage() {
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
   const { toast } = useToast();
   const { uploadFile, isUploading } = useUpload();
+  
+  useEffect(() => {
+    if (urlCategory) setSelectedCategory(urlCategory);
+  }, [urlCategory]);
 
   // Submit form state
   const [submitForm, setSubmitForm] = useState({

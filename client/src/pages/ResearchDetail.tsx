@@ -185,7 +185,9 @@ export default function ResearchDetail() {
             <div className="space-y-4">
               {/* Badges */}
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="default">{research.category || "Research"}</Badge>
+                <Link href={`/research?category=${encodeURIComponent(research.category || "Research")}`}>
+                  <Badge variant="default" className="cursor-pointer hover:opacity-80 transition-opacity">{research.category || "Research"}</Badge>
+                </Link>
                 {research.language && (
                   <Badge variant="secondary">{research.language}</Badge>
                 )}

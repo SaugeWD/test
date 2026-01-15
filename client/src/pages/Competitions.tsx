@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/context/AuthContext";
@@ -37,7 +37,7 @@ import {
   Globe,
   Loader2,
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 interface Competition {
@@ -284,7 +284,11 @@ function CompetitionCard({ competition }: { competition: Competition }) {
 
       <CardHeader className="flex-grow">
         <div className="mb-2 flex items-center gap-2 flex-wrap">
-          {competition.category && <Badge variant="outline">{competition.category}</Badge>}
+          {competition.category && (
+            <Link href={`/competitions?category=${encodeURIComponent(competition.category)}`}>
+              <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity">{competition.category}</Badge>
+            </Link>
+          )}
         </div>
         <CardTitle className="text-xl text-balance line-clamp-2">{competition.title}</CardTitle>
         <CardDescription className="line-clamp-2">{competition.description}</CardDescription>
@@ -410,9 +414,17 @@ function CompetitionSkeletonCard() {
 }
 
 export default function CompetitionsPage() {
+  const urlSearchQuery = useSearch();
+  const urlParams = new URLSearchParams(urlSearchQuery);
+  const urlCategory = urlParams.get("category");
+  
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState(urlCategory || "all");
   const [activeTab, setActiveTab] = useState("ongoing");
+  
+  useEffect(() => {
+    if (urlCategory) setSelectedCategory(urlCategory);
+  }, [urlCategory]);
 
   const { data: competitions = [], isLoading } = useQuery<Competition[]>({
     queryKey: ["/api/competitions"],

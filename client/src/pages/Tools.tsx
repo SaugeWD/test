@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link, useSearch } from "wouter";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -151,9 +152,11 @@ function SoftwareCard({ tool }: { tool: APITool }) {
             <div className="flex-1">
               <CardTitle className="text-lg">{tool.name}</CardTitle>
               {tool.category && (
-                <Badge variant="outline" className="text-xs mt-1 capitalize">
-                  {tool.category}
-                </Badge>
+                <Link href={`/tools?category=${encodeURIComponent(tool.category)}`}>
+                  <Badge variant="outline" className="text-xs mt-1 capitalize cursor-pointer hover:opacity-80 transition-opacity">
+                    {tool.category}
+                  </Badge>
+                </Link>
               )}
             </div>
           </div>
@@ -246,9 +249,11 @@ function AnalysisToolCard({ tool }: { tool: APITool }) {
             <div className="flex-1">
               <CardTitle className="text-lg">{tool.name}</CardTitle>
               {tool.category && (
-                <Badge variant="outline" className="text-xs mt-1 capitalize">
-                  {tool.category.replace("-", " ")}
-                </Badge>
+                <Link href={`/tools?category=${encodeURIComponent(tool.category)}`}>
+                  <Badge variant="outline" className="text-xs mt-1 capitalize cursor-pointer hover:opacity-80 transition-opacity">
+                    {tool.category.replace("-", " ")}
+                  </Badge>
+                </Link>
               )}
             </div>
           </div>
@@ -471,10 +476,18 @@ function CourseCard({ course }: { course: APICourse }) {
 }
 
 export default function Tools() {
+  const urlSearchQuery = useSearch();
+  const urlParams = new URLSearchParams(urlSearchQuery);
+  const urlCategory = urlParams.get("category");
+  
   const [activeTab, setActiveTab] = useState("software");
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState(urlCategory || "all");
   const [softwareFilter, setSoftwareFilter] = useState("all");
+  
+  useEffect(() => {
+    if (urlCategory) setCategoryFilter(urlCategory);
+  }, [urlCategory]);
 
   const { data: allTools = [], isLoading: isToolsLoading } = useQuery<APITool[]>({
     queryKey: ["/api/tools"],

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
@@ -26,7 +26,7 @@ import {
   Filter,
   Loader2
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 interface Discussion {
@@ -65,9 +65,13 @@ const JORDANIAN_UNIVERSITIES = [
 ];
 
 export default function CommunityPage() {
+  const urlSearchQuery = useSearch();
+  const urlParams = new URLSearchParams(urlSearchQuery);
+  const urlCategory = urlParams.get("category");
+  
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All Topics");
+  const [selectedCategory, setSelectedCategory] = useState(urlCategory || "All Topics");
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
   const [savedPosts, setSavedPosts] = useState<Set<number>>(new Set());
   const [questionTitle, setQuestionTitle] = useState("");
@@ -75,6 +79,10 @@ export default function CommunityPage() {
   const [questionCategory, setQuestionCategory] = useState("");
   const [questionTags, setQuestionTags] = useState("");
   const { toast } = useToast();
+  
+  useEffect(() => {
+    if (urlCategory) setSelectedCategory(urlCategory);
+  }, [urlCategory]);
 
   // Fetch users from API
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<any[]>({
@@ -273,7 +281,9 @@ export default function CommunityPage() {
                               <div className="flex-1 min-w-0">
                                 <div className="mb-2 flex flex-wrap items-center gap-2">
                                   {discussion.category && (
-                                    <Badge variant="outline" data-testid={`badge-tag-${discussion.id}`}>{discussion.category}</Badge>
+                                    <Link href={`/community?category=${encodeURIComponent(discussion.category)}`} onClick={(e) => e.stopPropagation()}>
+                                      <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity" data-testid={`badge-tag-${discussion.id}`}>{discussion.category}</Badge>
+                                    </Link>
                                   )}
                                   <span className="text-xs text-muted-foreground" data-testid={`text-time-${discussion.id}`}>
                                     <Clock className="inline h-3 w-3 mr-1" />

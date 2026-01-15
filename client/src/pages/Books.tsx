@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, BookOpen, Download, ArrowUpDown, User, Loader2, Bookmark, ExternalLink } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -67,7 +67,9 @@ function BookCard({ book }: { book: Book }) {
             </div>
           )}
           {book.category && (
-            <Badge className="absolute top-3 left-3">{book.category}</Badge>
+            <Link href={`/books?category=${encodeURIComponent(book.category)}`} onClick={(e) => e.stopPropagation()}>
+              <Badge className="absolute top-3 left-3 cursor-pointer hover:opacity-80 transition-opacity">{book.category}</Badge>
+            </Link>
           )}
         </div>
         <CardHeader className="pb-2">
@@ -126,8 +128,16 @@ function BookCard({ book }: { book: Book }) {
 }
 
 export default function BooksPage() {
+  const urlSearchQuery = useSearch();
+  const urlParams = new URLSearchParams(urlSearchQuery);
+  const urlCategory = urlParams.get("category");
+  
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState(urlCategory || "all");
+  
+  useEffect(() => {
+    if (urlCategory) setCategoryFilter(urlCategory);
+  }, [urlCategory]);
 
   const { data: books, isLoading, error } = useQuery<Book[]>({
     queryKey: ["/api/books"],

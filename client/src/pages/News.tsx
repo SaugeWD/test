@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -44,7 +44,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Calendar, Search, Newspaper, MapPin, ArrowRight, Bell, Plus, Users, Clock, Loader2, Upload, FileText, X, Image as ImageIcon, MoreHorizontal, Edit, Trash2 } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { SocialInteractions } from "@/components/SocialInteractions";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -1264,8 +1264,12 @@ export function NewsEditDialog({ newsItem, isOpen, onOpenChange }: NewsEditDialo
 }
 
 export default function NewsPage() {
+  const urlSearchQuery = useSearch();
+  const urlParams = new URLSearchParams(urlSearchQuery);
+  const urlCategory = urlParams.get("category");
+  
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState(urlCategory || "all");
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [selectedEventType, setSelectedEventType] = useState("all");
   const [reminders, setReminders] = useState<Record<number, boolean>>({});
@@ -1274,6 +1278,10 @@ export default function NewsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [, navigate] = useLocation();
+  
+  useEffect(() => {
+    if (urlCategory) setSelectedCategory(urlCategory);
+  }, [urlCategory]);
 
   // Fetch news from API
   const { data: news = [], isLoading: isLoadingNews } = useQuery<any[]>({
@@ -1523,9 +1531,11 @@ export default function NewsPage() {
                       </div>
                       <CardHeader className="flex-grow">
                         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-                          <Badge variant="outline" data-testid={`badge-category-${item.id}`}>
-                            {item.category}
-                          </Badge>
+                          <Link href={`/news?category=${encodeURIComponent(item.category)}`} onClick={(e) => e.stopPropagation()}>
+                            <Badge variant="outline" className="cursor-pointer hover:opacity-80 transition-opacity" data-testid={`badge-category-${item.id}`}>
+                              {item.category}
+                            </Badge>
+                          </Link>
                           <Badge variant="secondary" data-testid={`badge-date-${item.id}`}>
                             <Calendar className="mr-1 h-3 w-3" />
                             {formatDate(item.date)}

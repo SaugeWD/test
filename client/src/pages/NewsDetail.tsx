@@ -247,9 +247,11 @@ export default function NewsDetailPage() {
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
                 {news.category && (
-                  <Badge variant="default" data-testid="badge-category">
-                    {news.category}
-                  </Badge>
+                  <Link href={`/news?category=${encodeURIComponent(news.category)}`}>
+                    <Badge variant="default" className="cursor-pointer hover:opacity-80 transition-opacity" data-testid="badge-category">
+                      {news.category}
+                    </Badge>
+                  </Link>
                 )}
                 {news.isEvent && (
                   <Badge variant="secondary" data-testid="badge-event">

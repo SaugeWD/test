@@ -7,13 +7,21 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Briefcase, MapPin, Clock, DollarSign, Building, Filter, Loader2 } from "lucide-react";
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useEffect } from "react";
+import { Link, useSearch } from "wouter";
 import type { Job } from "@shared/schema";
 
 export default function JobsPage() {
+  const searchQuery = useSearch();
+  const params = new URLSearchParams(searchQuery);
+  const urlType = params.get("type");
+  
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState(urlType || "all");
+  
+  useEffect(() => {
+    if (urlType) setTypeFilter(urlType);
+  }, [urlType]);
 
   const { data: jobs, isLoading, error } = useQuery<Job[]>({
     queryKey: ["/api/jobs"],
@@ -134,9 +142,11 @@ export default function JobsPage() {
                       <div className="flex items-center gap-2 flex-wrap mb-2">
                         <CardTitle className="text-xl">{job.title}</CardTitle>
                         {job.type && (
-                          <Badge className={`border-0 ${getTypeColor(job.type)}`}>
-                            {job.type}
-                          </Badge>
+                          <Link href={`/jobs?type=${job.type}`} onClick={(e) => e.stopPropagation()}>
+                            <Badge className={`border-0 cursor-pointer hover:opacity-80 transition-opacity ${getTypeColor(job.type)}`}>
+                              {job.type}
+                            </Badge>
+                          </Link>
                         )}
                       </div>
                       <CardDescription className="flex items-center gap-1">
