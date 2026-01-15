@@ -677,10 +677,11 @@ export default function ProfilePage() {
               ) : (
                 <>
                   <Button 
-                    variant={followStatus?.status === "accepted" ? "secondary" : "outline"} 
+                    variant={followStatus?.status === "accepted" || followStatus?.status === "pending" ? "secondary" : "outline"} 
                     onClick={() => followMutation.mutate()}
                     disabled={followMutation.isPending}
                     data-testid="button-follow"
+                    title={followStatus?.status === "pending" ? "Click to cancel request" : followStatus?.status === "accepted" ? "Click to unfollow" : ""}
                   >
                     {getFollowButtonContent()}
                   </Button>

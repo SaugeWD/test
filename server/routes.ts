@@ -1464,9 +1464,9 @@ export async function registerRoutes(app: Express): Promise<void> {
         return res.status(400).json({ message: "Cannot follow yourself" });
       }
 
-      const isAlreadyFollowing = await storage.isFollowing(req.user!.id, followingId);
+      const hasRelation = await storage.hasFollowRelation(req.user!.id, followingId);
       
-      if (isAlreadyFollowing) {
+      if (hasRelation) {
         await storage.unfollow(req.user!.id, followingId);
         res.json({ following: false });
       } else {

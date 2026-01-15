@@ -609,6 +609,15 @@ export class DatabaseStorage implements IStorage {
     return !!result;
   }
 
+  async hasFollowRelation(followerId: string, followingId: string): Promise<boolean> {
+    const [result] = await db.select().from(follows)
+      .where(and(
+        eq(follows.followerId, followerId),
+        eq(follows.followingId, followingId)
+      ));
+    return !!result;
+  }
+
   async getFollowerCount(userId: string): Promise<number> {
     const result = await db.select({ count: sql<number>`count(*)::int` }).from(follows)
       .where(and(eq(follows.followingId, userId), eq(follows.status, "accepted")));
