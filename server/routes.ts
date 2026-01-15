@@ -464,6 +464,217 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // Unified feed endpoint - aggregates all content types
+  app.get("/api/feed", optionalAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      // Fetch all content types in parallel
+      const [postsData, projectsData, researchData, newsData, jobsData, competitionsData] = await Promise.all([
+        storage.getPosts(limit),
+        storage.getProjects(limit),
+        req.user?.id ? storage.getResearchForUser(req.user.id, limit) : storage.getResearchApproved(limit),
+        req.user?.id ? storage.getNewsForUser(req.user.id, limit) : storage.getNewsApproved(limit),
+        storage.getJobs(limit),
+        storage.getCompetitions(limit),
+      ]);
+      
+      // Get author info for content
+      const userIds = new Set<string>();
+      postsData.forEach(p => p.authorId && userIds.add(p.authorId));
+      projectsData.forEach(p => p.authorId && userIds.add(p.authorId));
+      researchData.forEach(r => r.submittedById && userIds.add(r.submittedById));
+      newsData.forEach(n => n.submittedById && userIds.add(n.submittedById));
+      
+      const usersMap = new Map<string, any>();
+      for (const userId of userIds) {
+        const user = await storage.getUserById(userId);
+        if (user) usersMap.set(userId, user);
+      }
+      
+      // Transform to unified feed format
+      const feedItems: any[] = [];
+      
+      // Add posts
+      postsData.forEach(post => {
+        const author = usersMap.get(post.authorId || '');
+        feedItems.push({
+          id: post.id,
+          feedType: 'post',
+          type: post.type,
+          title: post.title,
+          content: post.content,
+          images: post.images,
+          tags: post.tags,
+          category: post.category,
+          createdAt: post.createdAt,
+          author: author ? {
+            id: author.id,
+            name: author.name,
+            username: author.username,
+            avatar: author.avatar,
+            isVerified: author.isVerified,
+            verificationType: author.verificationType,
+          } : null,
+          likesCount: post.likesCount || 0,
+          commentsCount: post.commentsCount || 0,
+        });
+      });
+      
+      // Add projects
+      projectsData.forEach(project => {
+        const author = usersMap.get(project.authorId || '');
+        feedItems.push({
+          id: project.id,
+          feedType: 'project',
+          type: project.type,
+          title: project.title,
+          content: project.description,
+          images: project.images || (project.coverImage ? [project.coverImage] : []),
+          tags: project.tags,
+          category: project.category,
+          createdAt: project.createdAt,
+          author: author ? {
+            id: author.id,
+            name: author.name,
+            username: author.username,
+            avatar: author.avatar,
+            isVerified: author.isVerified,
+            verificationType: author.verificationType,
+          } : null,
+          likesCount: 0,
+          commentsCount: 0,
+          location: project.location,
+          year: project.year,
+        });
+      });
+      
+      // Add research
+      researchData.forEach(paper => {
+        const author = usersMap.get(paper.submittedById || '');
+        feedItems.push({
+          id: paper.id,
+          feedType: 'research',
+          type: 'research',
+          title: paper.title,
+          content: paper.abstract,
+          images: paper.image ? [paper.image] : [],
+          tags: [],
+          category: paper.category,
+          createdAt: paper.createdAt,
+          author: author ? {
+            id: author.id,
+            name: author.name,
+            username: author.username,
+            avatar: author.avatar,
+            isVerified: author.isVerified,
+            verificationType: author.verificationType,
+          } : { name: paper.authors },
+          likesCount: 0,
+          commentsCount: 0,
+          university: paper.university,
+          language: paper.language,
+        });
+      });
+      
+      // Add news
+      newsData.forEach(item => {
+        const author = usersMap.get(item.submittedById || '');
+        feedItems.push({
+          id: item.id,
+          feedType: 'news',
+          type: item.isEvent ? 'event' : 'news',
+          title: item.title,
+          content: item.content,
+          images: item.images || (item.image ? [item.image] : []),
+          tags: item.tags,
+          category: item.category,
+          createdAt: item.createdAt,
+          author: author ? {
+            id: author.id,
+            name: author.name,
+            username: author.username,
+            avatar: author.avatar,
+            isVerified: author.isVerified,
+            verificationType: author.verificationType,
+          } : { name: item.source || 'ArchNet' },
+          likesCount: 0,
+          commentsCount: 0,
+          isEvent: item.isEvent,
+          eventDate: item.eventDate,
+          eventLocation: item.eventLocation,
+        });
+      });
+      
+      // Add jobs
+      jobsData.forEach(job => {
+        feedItems.push({
+          id: job.id,
+          feedType: 'job',
+          type: job.type,
+          title: job.title,
+          content: job.description,
+          images: [],
+          tags: job.requirements || [],
+          category: 'Career',
+          createdAt: job.createdAt,
+          author: { name: job.company },
+          likesCount: 0,
+          commentsCount: 0,
+          company: job.company,
+          location: job.location,
+          salary: job.salary,
+          jobType: job.type,
+        });
+      });
+      
+      // Add competitions
+      competitionsData.forEach(comp => {
+        feedItems.push({
+          id: comp.id,
+          feedType: 'competition',
+          type: 'competition',
+          title: comp.title,
+          content: comp.description,
+          images: comp.image ? [comp.image] : [],
+          tags: [],
+          category: comp.category,
+          createdAt: comp.createdAt,
+          author: { name: comp.organizer || 'Competition' },
+          likesCount: 0,
+          commentsCount: 0,
+          deadline: comp.deadline,
+          registrationDeadline: comp.registrationDeadline,
+          prize: comp.prize,
+          status: comp.status,
+        });
+      });
+      
+      // Filter muted users if authenticated
+      let filteredItems = feedItems;
+      if (req.user?.id) {
+        const mutedUsers = await storage.getMutedUsers(req.user.id);
+        const mutedIds = new Set(mutedUsers.map(m => m.mutedId));
+        filteredItems = feedItems.filter(item => !item.author?.id || !mutedIds.has(item.author.id));
+      }
+      
+      // Sort by createdAt descending
+      filteredItems.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      
+      // Apply limit
+      const limitedItems = filteredItems.slice(0, limit);
+      
+      res.json(limitedItems);
+    } catch (error) {
+      console.error("Failed to fetch feed:", error);
+      res.status(500).json({ message: "Failed to fetch feed" });
+    }
+  });
+
   app.get("/api/posts/:id", async (req, res) => {
     try {
       const post = await storage.getPost(req.params.id);
