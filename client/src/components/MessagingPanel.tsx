@@ -187,9 +187,9 @@ export function MessagingPanel() {
         <Button variant="ghost" size="icon" className="relative" data-testid="button-messages">
           <MessageCircle className="h-5 w-5" />
           {totalUnread > 0 && (
-            <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center">
-              {totalUnread}
-            </Badge>
+            <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full bg-foreground text-background text-[10px] font-medium flex items-center justify-center">
+              {totalUnread > 9 ? "9+" : totalUnread}
+            </span>
           )}
         </Button>
       </SheetTrigger>

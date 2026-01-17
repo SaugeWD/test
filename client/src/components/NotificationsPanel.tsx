@@ -118,9 +118,9 @@ export function NotificationsPanel() {
         <Button variant="ghost" size="icon" className="relative" data-testid="button-notifications">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center">
-              {unreadCount}
-            </Badge>
+            <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full bg-foreground text-background text-[10px] font-medium flex items-center justify-center">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
           )}
         </Button>
       </SheetTrigger>
