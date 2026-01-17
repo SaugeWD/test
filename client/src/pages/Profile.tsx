@@ -531,23 +531,22 @@ export default function ProfilePage() {
         <div className="container mx-auto px-4">
           <div className="relative -mt-16 flex flex-col items-center pb-6 md:flex-row md:items-end md:justify-between">
             <div className="flex flex-col items-center md:flex-row md:items-end md:gap-6">
-              <div className="relative">
-                <Avatar className="h-32 w-32 border-4 border-background shadow-lg">
-                  <AvatarImage src={displayUser?.avatar || "/placeholder-user.jpg"} />
-                  <AvatarFallback className="text-3xl">{displayUser?.name?.[0] || "U"}</AvatarFallback>
-                </Avatar>
-                {isOwnProfile && (
-                  <Button 
-                    variant="secondary" 
-                    size="icon" 
-                    className="absolute bottom-0 right-0 h-8 w-8 rounded-full border-2 border-background"
-                    asChild
-                    data-testid="button-edit-avatar"
-                  >
-                    <Link href="/settings">
-                      <Camera className="h-4 w-4" />
-                    </Link>
-                  </Button>
+              <div className="relative group">
+                {isOwnProfile ? (
+                  <Link href="/settings" className="block" data-testid="button-edit-avatar">
+                    <Avatar className="h-32 w-32 border-4 border-background shadow-lg cursor-pointer">
+                      <AvatarImage src={displayUser?.avatar || "/placeholder-user.jpg"} />
+                      <AvatarFallback className="text-3xl">{displayUser?.name?.[0] || "U"}</AvatarFallback>
+                    </Avatar>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity border-4 border-transparent">
+                      <Camera className="h-8 w-8 text-white" />
+                    </div>
+                  </Link>
+                ) : (
+                  <Avatar className="h-32 w-32 border-4 border-background shadow-lg">
+                    <AvatarImage src={displayUser?.avatar || "/placeholder-user.jpg"} />
+                    <AvatarFallback className="text-3xl">{displayUser?.name?.[0] || "U"}</AvatarFallback>
+                  </Avatar>
                 )}
               </div>
               <div className="mt-4 text-center md:mt-0 md:text-left">
