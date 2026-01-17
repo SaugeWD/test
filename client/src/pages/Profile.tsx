@@ -783,35 +783,37 @@ export default function ProfilePage() {
             </div>
 
             <div className="lg:col-span-3">
-              <Tabs defaultValue="posts">
-                <TabsList className="mb-6">
-                  <TabsTrigger value="posts" data-testid="tab-posts">
+              <Tabs defaultValue="posts" className="flex flex-col md:flex-row gap-6">
+                <TabsList className="flex flex-row md:flex-col h-auto w-full md:w-48 p-1 bg-muted/50 rounded-lg shrink-0">
+                  <TabsTrigger value="posts" className="w-full justify-start px-3 py-2.5" data-testid="tab-posts">
                     <FileText className="mr-2 h-4 w-4" />
                     Posts
                   </TabsTrigger>
-                  <TabsTrigger value="projects" data-testid="tab-projects">
+                  <TabsTrigger value="projects" className="w-full justify-start px-3 py-2.5" data-testid="tab-projects">
                     <Folder className="mr-2 h-4 w-4" />
                     Projects
                   </TabsTrigger>
-                  <TabsTrigger value="saved" data-testid="tab-saved">
+                  <TabsTrigger value="saved" className="w-full justify-start px-3 py-2.5" data-testid="tab-saved">
                     <BookOpen className="mr-2 h-4 w-4" />
                     Saved
                   </TabsTrigger>
-                  <TabsTrigger value="research" data-testid="tab-research">
+                  <TabsTrigger value="research" className="w-full justify-start px-3 py-2.5" data-testid="tab-research">
                     <FileText className="mr-2 h-4 w-4" />
                     Research
                   </TabsTrigger>
-                  <TabsTrigger value="news" data-testid="tab-news">
+                  <TabsTrigger value="news" className="w-full justify-start px-3 py-2.5" data-testid="tab-news">
                     <Newspaper className="mr-2 h-4 w-4" />
                     News
                   </TabsTrigger>
                   {(isOwnProfile || profileUser?.isActivityPublic) && (
-                    <TabsTrigger value="activity" data-testid="tab-activity">
+                    <TabsTrigger value="activity" className="w-full justify-start px-3 py-2.5" data-testid="tab-activity">
                       <Briefcase className="mr-2 h-4 w-4" />
                       Activity
                     </TabsTrigger>
                   )}
                 </TabsList>
+                
+                <div className="flex-1 min-w-0">
 
                 <TabsContent value="posts">
                   {postsLoading ? (
@@ -1201,6 +1203,7 @@ export default function ProfilePage() {
                     </div>
                   )}
                 </TabsContent>
+                </div>
               </Tabs>
             </div>
           </div>
