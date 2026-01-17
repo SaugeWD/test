@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   User, 
   Shield, 
@@ -82,6 +83,9 @@ export default function SettingsPage() {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [inAppNotifications, setInAppNotifications] = useState(true);
   const [isActivityPublic, setIsActivityPublic] = useState(false);
+  const [isPublicProfile, setIsPublicProfile] = useState(true);
+  const [defaultPostPrivacy, setDefaultPostPrivacy] = useState("public");
+  const [allowMessages, setAllowMessages] = useState(true);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -822,42 +826,33 @@ export default function SettingsPage() {
             <TabsContent value="privacy">
               <Card>
                 <CardHeader>
-                  <CardTitle>Privacy & Security</CardTitle>
-                  <CardDescription>Control your privacy settings and security options</CardDescription>
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <CardTitle>Privacy</CardTitle>
+                      <CardDescription>Control your privacy settings</CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <div className="space-y-0.5">
-                      <Label>Show Email Publicly</Label>
-                      <p className="text-sm text-muted-foreground">Allow others to see your email on your profile</p>
+                      <Label className="font-medium">Public Profile</Label>
+                      <p className="text-sm text-muted-foreground">Make your profile visible to others</p>
                     </div>
                     <Switch 
-                      checked={showEmailPublicly} 
-                      onCheckedChange={setShowEmailPublicly}
-                      data-testid="switch-show-email"
+                      checked={isPublicProfile} 
+                      onCheckedChange={setIsPublicProfile}
+                      data-testid="switch-public-profile"
                     />
                   </div>
 
                   <Separator />
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <div className="space-y-0.5">
-                      <Label>Allow Messages from Non-Connections</Label>
-                      <p className="text-sm text-muted-foreground">Receive messages from users you don't follow</p>
-                    </div>
-                    <Switch 
-                      checked={allowMessagesFromNonConnections} 
-                      onCheckedChange={setAllowMessagesFromNonConnections}
-                      data-testid="switch-allow-messages"
-                    />
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Show Activity Publicly</Label>
-                      <p className="text-sm text-muted-foreground">Allow others to see your likes and comments on your profile</p>
+                      <Label className="font-medium">Show Activity</Label>
+                      <p className="text-sm text-muted-foreground">Display your activity to followers</p>
                     </div>
                     <Switch 
                       checked={isActivityPublic} 
@@ -868,17 +863,35 @@ export default function SettingsPage() {
 
                   <Separator />
 
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Session Information</h4>
-                    <div className="flex items-center gap-3 rounded-lg border p-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
-                        <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-                      </div>
-                      <div>
-                        <p className="font-medium" data-testid="text-session-status">Current session active</p>
-                        <p className="text-sm text-muted-foreground">Logged in from this device</p>
-                      </div>
+                  <div className="space-y-3">
+                    <div className="space-y-0.5">
+                      <Label className="font-medium">Default Post Privacy</Label>
                     </div>
+                    <Select value={defaultPostPrivacy} onValueChange={setDefaultPostPrivacy}>
+                      <SelectTrigger className="w-[220px]" data-testid="select-post-privacy">
+                        <SelectValue placeholder="Select privacy" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="public">Public - Anyone can see</SelectItem>
+                        <SelectItem value="followers">Followers Only</SelectItem>
+                        <SelectItem value="private">Private - Only me</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground">Choose who can see your posts by default</p>
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <Label className="font-medium">Allow Messages</Label>
+                      <p className="text-sm text-muted-foreground">Let others send you direct messages</p>
+                    </div>
+                    <Switch 
+                      checked={allowMessages} 
+                      onCheckedChange={setAllowMessages}
+                      data-testid="switch-allow-messages"
+                    />
                   </div>
                 </CardContent>
               </Card>
