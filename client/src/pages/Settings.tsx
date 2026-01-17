@@ -30,7 +30,13 @@ import {
   Mail,
   MapPin,
   Briefcase,
-  FileText
+  FileText,
+  Phone,
+  Globe,
+  Building2,
+  GraduationCap,
+  Calendar,
+  Users
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
@@ -42,6 +48,14 @@ const profileFormSchema = z.object({
   bio: z.string().optional(),
   title: z.string().optional(),
   location: z.string().optional(),
+  phone: z.string().optional(),
+  portfolioUrl: z.string().optional(),
+  workplace: z.string().optional(),
+  yearsOfExperience: z.string().optional(),
+  university: z.string().optional(),
+  studentYear: z.string().optional(),
+  companySize: z.string().optional(),
+  foundedYear: z.string().optional(),
 });
 
 const passwordFormSchema = z.object({
@@ -76,6 +90,14 @@ export default function SettingsPage() {
       bio: "",
       title: "",
       location: "",
+      phone: "",
+      portfolioUrl: "",
+      workplace: "",
+      yearsOfExperience: "",
+      university: "",
+      studentYear: "",
+      companySize: "",
+      foundedYear: "",
     },
   });
 
@@ -101,6 +123,14 @@ export default function SettingsPage() {
         bio: user.bio || "",
         title: user.title || "",
         location: user.location || "",
+        phone: user.phone || "",
+        portfolioUrl: user.portfolioUrl || "",
+        workplace: user.workplace || "",
+        yearsOfExperience: user.yearsOfExperience || "",
+        university: user.university || "",
+        studentYear: user.studentYear || "",
+        companySize: user.companySize || "",
+        foundedYear: user.foundedYear || "",
       });
       setIsActivityPublic(user.isActivityPublic || false);
     }
@@ -405,6 +435,165 @@ export default function SettingsPage() {
                           </FormItem>
                         )}
                       />
+
+                      <Separator />
+
+                      <FormField
+                        control={profileForm.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone Number</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input {...field} className="pl-10" placeholder="+962 7XX XXX XXX" data-testid="input-phone" />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={profileForm.control}
+                        name="portfolioUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Portfolio URL</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Globe className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input {...field} className="pl-10" placeholder="https://yourportfolio.com" data-testid="input-portfolio" />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {user.role === "engineer" && (
+                        <>
+                          <Separator />
+                          <h3 className="text-lg font-semibold">Engineer Details</h3>
+                          
+                          <FormField
+                            control={profileForm.control}
+                            name="workplace"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Workplace</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input {...field} className="pl-10" placeholder="Company or firm name" data-testid="input-workplace" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={profileForm.control}
+                            name="yearsOfExperience"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Years of Experience</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input {...field} className="pl-10" placeholder="e.g. 5" data-testid="input-experience" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
+                      )}
+
+                      {user.role === "student" && (
+                        <>
+                          <Separator />
+                          <h3 className="text-lg font-semibold">Student Details</h3>
+                          
+                          <FormField
+                            control={profileForm.control}
+                            name="university"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>University</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <GraduationCap className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input {...field} className="pl-10" placeholder="University name" data-testid="input-university" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={profileForm.control}
+                            name="studentYear"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Year of Study</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input {...field} className="pl-10" placeholder="e.g. 3rd Year" data-testid="input-student-year" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
+                      )}
+
+                      {user.role === "firm" && (
+                        <>
+                          <Separator />
+                          <h3 className="text-lg font-semibold">Company Details</h3>
+                          
+                          <FormField
+                            control={profileForm.control}
+                            name="companySize"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Company Size</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Users className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input {...field} className="pl-10" placeholder="e.g. 50-100 employees" data-testid="input-company-size" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={profileForm.control}
+                            name="foundedYear"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Founded Year</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input {...field} className="pl-10" placeholder="e.g. 2010" data-testid="input-founded-year" />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
+                      )}
 
                       <Button 
                         type="submit" 
