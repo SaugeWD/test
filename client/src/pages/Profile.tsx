@@ -513,20 +513,6 @@ export default function ProfilePage() {
             <div className="h-full w-full bg-gradient-to-r from-accent/20 to-primary/20" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-          {isOwnProfile && (
-            <Button 
-              variant="secondary" 
-              size="sm" 
-              className="absolute bottom-3 right-3 bg-background/80 backdrop-blur-sm"
-              asChild
-              data-testid="button-edit-cover"
-            >
-              <Link href="/settings">
-                <Camera className="mr-2 h-4 w-4" />
-                Edit Cover
-              </Link>
-            </Button>
-          )}
         </div>
         <div className="container mx-auto px-4">
           <div className="relative -mt-16 flex flex-col items-center pb-6 md:flex-row md:items-end md:justify-between">
