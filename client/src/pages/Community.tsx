@@ -524,7 +524,7 @@ export default function CommunityPage() {
                               {discussion.content?.substring(0, 250)}{discussion.content && discussion.content.length > 250 ? '...' : ''}
                             </p>
                             
-                            {discussion.tags && discussion.tags.length > 0 && (
+                            {Array.isArray(discussion.tags) && discussion.tags.length > 0 && (
                               <div className="flex flex-wrap gap-1.5 mt-3">
                                 {discussion.tags.slice(0, 4).map((tag, idx) => (
                                   <Badge key={idx} variant="outline" className="text-xs">
