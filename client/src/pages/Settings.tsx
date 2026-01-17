@@ -37,7 +37,9 @@ import {
   Building2,
   GraduationCap,
   Calendar,
-  Users
+  Users,
+  Upload,
+  BadgeCheck
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
@@ -86,6 +88,13 @@ export default function SettingsPage() {
   const [isPublicProfile, setIsPublicProfile] = useState(true);
   const [defaultPostPrivacy, setDefaultPostPrivacy] = useState("public");
   const [allowMessages, setAllowMessages] = useState(true);
+  
+  // Verification form state
+  const [accountType, setAccountType] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [additionalInfo, setAdditionalInfo] = useState("");
+  const [verificationDocs, setVerificationDocs] = useState<File[]>([]);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -741,83 +750,131 @@ export default function SettingsPage() {
             <TabsContent value="verification">
               <Card>
                 <CardHeader>
-                  <CardTitle>Account Verification</CardTitle>
-                  <CardDescription>Get verified to show your professional credentials</CardDescription>
+                  <div className="flex items-start gap-3">
+                    <BadgeCheck className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div className="space-y-1">
+                      <CardTitle>Get Verified</CardTitle>
+                      <CardDescription>
+                        Verified accounts are trusted members of the architectural community including firms, universities, professors, and professional architects.
+                      </CardDescription>
+                      <Badge variant={user.isVerified ? "default" : "secondary"} className="mt-2" data-testid="badge-verification-status">
+                        {user.isVerified ? "Verified" : "Not Verified"}
+                      </Badge>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex items-center gap-4 rounded-lg border p-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                      {user.isVerified ? (
-                        <CheckCircle className="h-6 w-6 text-green-500" />
-                      ) : (
-                        <AlertCircle className="h-6 w-6 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium" data-testid="text-verification-status">
-                        {user.isVerified ? "Verified Account" : "Not Verified"}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {user.isVerified 
-                          ? `Your account is verified as ${user.verificationType || "professional"}`
-                          : "Request verification to display a badge on your profile"
-                        }
-                      </p>
-                    </div>
-                    {user.isVerified && user.verificationType && (
-                      <Badge variant="secondary" className="capitalize">
-                        {user.verificationType}
-                      </Badge>
-                    )}
-                  </div>
-
                   {!user.isVerified && (
                     <>
                       <Separator />
 
                       <div className="space-y-4">
-                        <h4 className="font-medium">Select Verification Type</h4>
-                        <RadioGroup defaultValue="architect" className="space-y-3">
-                          <div className="flex items-center space-x-3 rounded-lg border p-4 hover-elevate">
-                            <RadioGroupItem value="architect" id="architect" data-testid="radio-architect" />
-                            <Label htmlFor="architect" className="flex-1 cursor-pointer">
-                              <div className="font-medium">Licensed Architect</div>
-                              <div className="text-sm text-muted-foreground">For practicing architects with valid licenses</div>
-                            </Label>
+                        <div className="space-y-2">
+                          <Label className="font-medium">Account Type</Label>
+                          <Select value={accountType} onValueChange={setAccountType}>
+                            <SelectTrigger className="w-full" data-testid="select-account-type">
+                              <SelectValue placeholder="Select account type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="architect">Licensed Architect</SelectItem>
+                              <SelectItem value="firm">Architecture Firm</SelectItem>
+                              <SelectItem value="professor">Professor / Educator</SelectItem>
+                              <SelectItem value="university">University / Institution</SelectItem>
+                              <SelectItem value="student">Architecture Student</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="font-medium">Organization/Institution Name</Label>
+                          <Input 
+                            value={organizationName}
+                            onChange={(e) => setOrganizationName(e.target.value)}
+                            placeholder="e.g., Jordan Engineers Association"
+                            data-testid="input-organization-name"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="font-medium">License/Credential Number (if applicable)</Label>
+                          <Input 
+                            value={licenseNumber}
+                            onChange={(e) => setLicenseNumber(e.target.value)}
+                            placeholder="Professional license or credential number"
+                            data-testid="input-license-number"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="font-medium">Additional Information</Label>
+                          <Textarea 
+                            value={additionalInfo}
+                            onChange={(e) => setAdditionalInfo(e.target.value)}
+                            placeholder="Provide details about your professional background, credentials, or why you should be verified..."
+                            className="resize-none"
+                            rows={4}
+                            data-testid="input-additional-info"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="font-medium">Supporting Documents</Label>
+                          <div className="flex items-center gap-3">
+                            <Button 
+                              type="button" 
+                              variant="outline"
+                              onClick={() => document.getElementById('verification-docs')?.click()}
+                              data-testid="button-upload-docs"
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Documents
+                            </Button>
+                            <span className="text-sm text-muted-foreground">
+                              Upload professional license, ID, or institutional proof
+                            </span>
+                            <input 
+                              type="file" 
+                              id="verification-docs" 
+                              className="hidden" 
+                              multiple 
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => {
+                                if (e.target.files) {
+                                  setVerificationDocs(Array.from(e.target.files));
+                                }
+                              }}
+                            />
                           </div>
-                          <div className="flex items-center space-x-3 rounded-lg border p-4 hover-elevate">
-                            <RadioGroupItem value="firm" id="firm" data-testid="radio-firm" />
-                            <Label htmlFor="firm" className="flex-1 cursor-pointer">
-                              <div className="font-medium">Architecture Firm</div>
-                              <div className="text-sm text-muted-foreground">For registered architecture firms and studios</div>
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-3 rounded-lg border p-4 hover-elevate">
-                            <RadioGroupItem value="student" id="student" data-testid="radio-student" />
-                            <Label htmlFor="student" className="flex-1 cursor-pointer">
-                              <div className="font-medium">Architecture Student</div>
-                              <div className="text-sm text-muted-foreground">For students enrolled in architecture programs</div>
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-3 rounded-lg border p-4 hover-elevate">
-                            <RadioGroupItem value="educator" id="educator" data-testid="radio-educator" />
-                            <Label htmlFor="educator" className="flex-1 cursor-pointer">
-                              <div className="font-medium">Educator</div>
-                              <div className="text-sm text-muted-foreground">For professors and instructors in architecture</div>
-                            </Label>
-                          </div>
-                        </RadioGroup>
+                          {verificationDocs.length > 0 && (
+                            <div className="mt-2 text-sm text-muted-foreground">
+                              {verificationDocs.length} file(s) selected
+                            </div>
+                          )}
+                        </div>
 
                         <Button 
-                          onClick={() => requestVerificationMutation.mutate("architect")}
-                          disabled={requestVerificationMutation.isPending}
-                          data-testid="button-request-verification"
+                          className="w-full"
+                          onClick={() => requestVerificationMutation.mutate(accountType || "architect")}
+                          disabled={requestVerificationMutation.isPending || !accountType}
+                          data-testid="button-submit-verification"
                         >
                           {requestVerificationMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Request Verification
+                          Submit Verification Request
                         </Button>
                       </div>
                     </>
+                  )}
+
+                  {user.isVerified && (
+                    <div className="flex items-center gap-3 rounded-lg border p-4 bg-green-50 dark:bg-green-950">
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      <div>
+                        <p className="font-medium text-green-800 dark:text-green-200">Your account is verified</p>
+                        <p className="text-sm text-green-600 dark:text-green-400">
+                          Verified as {user.verificationType || "professional"}
+                        </p>
+                      </div>
+                    </div>
                   )}
                 </CardContent>
               </Card>
