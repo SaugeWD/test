@@ -713,53 +713,55 @@ export default function ProfilePage() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Stats</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
-                      <FileText className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xl font-bold" data-testid="text-posts-count">{userPosts?.length || 0}</span>
-                      <span className="text-xs text-muted-foreground">Posts</span>
+              {isOwnProfile && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Stats</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+                        <FileText className="h-5 w-5 text-muted-foreground mb-1" />
+                        <span className="text-xl font-bold" data-testid="text-posts-count">{userPosts?.length || 0}</span>
+                        <span className="text-xs text-muted-foreground">Posts</span>
+                      </div>
+                      <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+                        <Folder className="h-5 w-5 text-muted-foreground mb-1" />
+                        <span className="text-xl font-bold" data-testid="text-projects-count">{userProjects?.length || userStats?.projects || 0}</span>
+                        <span className="text-xs text-muted-foreground">Projects</span>
+                      </div>
+                      <button 
+                        onClick={() => setShowFollowers(true)}
+                        className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center hover:bg-muted transition-colors"
+                        data-testid="button-show-followers"
+                      >
+                        <Users className="h-5 w-5 text-muted-foreground mb-1" />
+                        <span className="text-xl font-bold" data-testid="text-followers-count">{followerCount?.count || 0}</span>
+                        <span className="text-xs text-muted-foreground">Followers</span>
+                      </button>
+                      <button 
+                        onClick={() => setShowFollowing(true)}
+                        className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center hover:bg-muted transition-colors"
+                        data-testid="button-show-following"
+                      >
+                        <Users className="h-5 w-5 text-muted-foreground mb-1" />
+                        <span className="text-xl font-bold" data-testid="text-following-count">{followingCount?.count || 0}</span>
+                        <span className="text-xs text-muted-foreground">Following</span>
+                      </button>
+                      <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+                        <Heart className="h-5 w-5 text-muted-foreground mb-1" />
+                        <span className="text-xl font-bold" data-testid="text-likes-count">{userLikes?.length || 0}</span>
+                        <span className="text-xs text-muted-foreground">Likes</span>
+                      </div>
+                      <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+                        <MessageCircle className="h-5 w-5 text-muted-foreground mb-1" />
+                        <span className="text-xl font-bold" data-testid="text-comments-count">{userComments?.length || 0}</span>
+                        <span className="text-xs text-muted-foreground">Comments</span>
+                      </div>
                     </div>
-                    <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
-                      <Folder className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xl font-bold" data-testid="text-projects-count">{userProjects?.length || userStats?.projects || 0}</span>
-                      <span className="text-xs text-muted-foreground">Projects</span>
-                    </div>
-                    <button 
-                      onClick={() => setShowFollowers(true)}
-                      className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center hover:bg-muted transition-colors"
-                      data-testid="button-show-followers"
-                    >
-                      <Users className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xl font-bold" data-testid="text-followers-count">{followerCount?.count || 0}</span>
-                      <span className="text-xs text-muted-foreground">Followers</span>
-                    </button>
-                    <button 
-                      onClick={() => setShowFollowing(true)}
-                      className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center hover:bg-muted transition-colors"
-                      data-testid="button-show-following"
-                    >
-                      <Users className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xl font-bold" data-testid="text-following-count">{followingCount?.count || 0}</span>
-                      <span className="text-xs text-muted-foreground">Following</span>
-                    </button>
-                    <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
-                      <Heart className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xl font-bold" data-testid="text-likes-count">{userLikes?.length || 0}</span>
-                      <span className="text-xs text-muted-foreground">Likes</span>
-                    </div>
-                    <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
-                      <MessageCircle className="h-5 w-5 text-muted-foreground mb-1" />
-                      <span className="text-xl font-bold" data-testid="text-comments-count">{userComments?.length || 0}</span>
-                      <span className="text-xs text-muted-foreground">Comments</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
 
               {isOwnProfile && isAuthenticated && pendingRequests && pendingRequests.length > 0 && (
                 <Card>
