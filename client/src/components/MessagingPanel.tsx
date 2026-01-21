@@ -261,66 +261,68 @@ export function MessagingPanel() {
                         <div className="flex-1 space-y-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-semibold text-sm truncate">{conversation.user.name}</span>
-                            <span className="text-xs text-muted-foreground flex-shrink-0">{conversation.timestamp}</span>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                  }}
+                                  data-testid={`button-pin-conversation-${conversation.id}`}
+                                >
+                                  <Pin className="h-3 w-3" />
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={(e) => e.stopPropagation()}
+                                      data-testid={`button-conversation-menu-${conversation.id}`}
+                                    >
+                                      <MoreVertical className="h-3 w-3" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                      }}
+                                      data-testid={`button-pin-menu-${conversation.id}`}
+                                    >
+                                      <Pin className="mr-2 h-4 w-4" />
+                                      Pin conversation
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteConversationMutation.mutate(conversation.user.id);
+                                      }}
+                                      className="text-destructive"
+                                      data-testid={`button-delete-conversation-${conversation.id}`}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete conversation
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                              {conversation.unread > 0 && (
+                                <Badge className="h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center">
+                                  {conversation.unread}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm text-muted-foreground truncate">{conversation.lastMessage}</p>
-                            {conversation.unread > 0 && (
-                              <Badge className="ml-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center flex-shrink-0">
-                                {conversation.unread}
-                              </Badge>
-                            )}
+                            <span className="text-xs text-muted-foreground flex-shrink-0">{conversation.timestamp}</span>
                           </div>
                         </div>
-                      </div>
-                      <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          data-testid={`button-pin-conversation-${conversation.id}`}
-                        >
-                          <Pin className="h-3.5 w-3.5" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={(e) => e.stopPropagation()}
-                              data-testid={`button-conversation-menu-${conversation.id}`}
-                            >
-                              <MoreVertical className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                              data-testid={`button-pin-menu-${conversation.id}`}
-                            >
-                              <Pin className="mr-2 h-4 w-4" />
-                              Pin conversation
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteConversationMutation.mutate(conversation.user.id);
-                              }}
-                              className="text-destructive"
-                              data-testid={`button-delete-conversation-${conversation.id}`}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete conversation
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </div>
                     </div>
                   ))}
