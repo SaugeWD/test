@@ -48,6 +48,8 @@ function SavedItemCard({ item }: { item: SavedItem }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       toast({ description: "Removed from saved items" });
     },
   });
@@ -170,6 +172,11 @@ function LikedItemCard({ item, onUnlike }: { item: Like; onUnlike: () => void })
     },
     onSuccess: () => {
       onUnlike();
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "posts"
+      });
       toast({ description: "Like removed" });
     },
   });

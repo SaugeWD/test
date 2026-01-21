@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -93,8 +94,8 @@ export default function CommunityPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(urlCategory || "All Topics");
-  const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
-  const [savedPosts, setSavedPosts] = useState<Set<number>>(new Set());
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set());
   const [questionTitle, setQuestionTitle] = useState("");
   const [questionDescription, setQuestionDescription] = useState("");
   const [questionCategory, setQuestionCategory] = useState("");
@@ -202,30 +203,60 @@ export default function CommunityPage() {
     }
   };
 
-  const handleLike = (postId: number) => {
-    setLikedPosts((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(postId)) {
-        newSet.delete(postId);
-      } else {
-        newSet.add(postId);
-      }
-      return newSet;
-    });
+  const likeMutation = useMutation({
+    mutationFn: async ({ targetType, targetId }: { targetType: string; targetId: string }) => {
+      const res = await apiRequest("POST", "/api/likes", { targetType, targetId });
+      return res.json();
+    },
+    onSuccess: (_, { targetId }) => {
+      setLikedPosts((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(targetId)) {
+          newSet.delete(targetId);
+        } else {
+          newSet.add(targetId);
+        }
+        return newSet;
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "posts"
+      });
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async ({ targetType, targetId }: { targetType: string; targetId: string }) => {
+      const res = await apiRequest("POST", "/api/saved", { targetType, targetId });
+      return res.json();
+    },
+    onSuccess: (_, { targetId }) => {
+      setSavedPosts((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(targetId)) {
+          newSet.delete(targetId);
+          toast({ description: "Removed from saved items" });
+        } else {
+          newSet.add(targetId);
+          toast({ description: "Saved to your library" });
+        }
+        return newSet;
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+    },
+  });
+
+  const handleLike = (item: UnifiedFeedItem) => {
+    if (!user) return;
+    likeMutation.mutate({ targetType: item.feedType, targetId: item.id });
   };
 
-  const handleSave = (postId: number) => {
-    setSavedPosts((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(postId)) {
-        newSet.delete(postId);
-        toast({ description: "Removed from saved items" });
-      } else {
-        newSet.add(postId);
-        toast({ description: "Saved to your library" });
-      }
-      return newSet;
-    });
+  const handleSave = (item: UnifiedFeedItem) => {
+    if (!user) return;
+    saveMutation.mutate({ targetType: item.feedType, targetId: item.id });
   };
 
   const handlePostQuestion = () => {
@@ -544,12 +575,13 @@ export default function CommunityPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleLike(Number(discussion.id))}
-                                  className={likedPosts.has(Number(discussion.id)) ? "text-accent" : ""}
+                                  onClick={() => handleLike(discussion)}
+                                  className={likedPosts.has(discussion.id) ? "text-accent" : ""}
                                   data-testid={`button-like-${discussion.id}`}
+                                  disabled={likeMutation.isPending}
                                 >
-                                  <Heart className={`h-4 w-4 mr-1.5 ${likedPosts.has(Number(discussion.id)) ? "fill-current" : ""}`} />
-                                  <span>{(discussion.likesCount || 0) + (likedPosts.has(Number(discussion.id)) ? 1 : 0)}</span>
+                                  <Heart className={`h-4 w-4 mr-1.5 ${likedPosts.has(discussion.id) ? "fill-current" : ""}`} />
+                                  <span>{discussion.likesCount || 0}</span>
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -564,11 +596,12 @@ export default function CommunityPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleSave(Number(discussion.id))}
-                                  className={savedPosts.has(Number(discussion.id)) ? "text-accent" : ""}
+                                  onClick={() => handleSave(discussion)}
+                                  className={savedPosts.has(discussion.id) ? "text-accent" : ""}
                                   data-testid={`button-save-${discussion.id}`}
+                                  disabled={saveMutation.isPending}
                                 >
-                                  <Bookmark className={`h-4 w-4 ${savedPosts.has(Number(discussion.id)) ? "fill-current" : ""}`} />
+                                  <Bookmark className={`h-4 w-4 ${savedPosts.has(discussion.id) ? "fill-current" : ""}`} />
                                 </Button>
                                 {detailLink && (
                                   <Button variant="ghost" size="sm" asChild>
