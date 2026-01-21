@@ -94,8 +94,6 @@ export default function CommunityPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(urlCategory || "All Topics");
-  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
-  const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set());
   const [questionTitle, setQuestionTitle] = useState("");
   const [questionDescription, setQuestionDescription] = useState("");
   const [questionCategory, setQuestionCategory] = useState("");
@@ -116,7 +114,33 @@ export default function CommunityPage() {
     queryKey: ['/api/feed']
   });
 
+  // Fetch user's likes
+  const { data: userLikes = [] } = useQuery<Array<{ targetType: string; targetId: string }>>({
+    queryKey: [`/api/users/${user?.id}/likes`],
+    enabled: !!user?.id,
+  });
+
+  // Fetch user's saved items
+  const { data: savedItems = [] } = useQuery<Array<{ targetType: string; targetId: string }>>({
+    queryKey: ["/api/saved"],
+    enabled: !!user,
+  });
+
   const discussions = feedItems;
+
+  // Helper to check if item is liked
+  const isItemLiked = (item: UnifiedFeedItem) => {
+    return userLikes.some(
+      (like) => like.targetType === item.feedType && like.targetId === item.id
+    );
+  };
+
+  // Helper to check if item is saved
+  const isItemSaved = (item: UnifiedFeedItem) => {
+    return savedItems.some(
+      (saved) => saved.targetType === item.feedType && saved.targetId === item.id
+    );
+  };
 
   // Get initials from name
   const getInitials = (name: string) => {
@@ -208,18 +232,10 @@ export default function CommunityPage() {
       const res = await apiRequest("POST", "/api/likes", { targetType, targetId });
       return res.json();
     },
-    onSuccess: (_, { targetId }) => {
-      setLikedPosts((prev) => {
-        const newSet = new Set(prev);
-        if (newSet.has(targetId)) {
-          newSet.delete(targetId);
-        } else {
-          newSet.add(targetId);
-        }
-        return newSet;
-      });
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/likes`] });
       queryClient.invalidateQueries({ predicate: (query) => 
         Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "posts"
       });
@@ -231,21 +247,15 @@ export default function CommunityPage() {
       const res = await apiRequest("POST", "/api/saved", { targetType, targetId });
       return res.json();
     },
-    onSuccess: (_, { targetId }) => {
-      setSavedPosts((prev) => {
-        const newSet = new Set(prev);
-        if (newSet.has(targetId)) {
-          newSet.delete(targetId);
-          toast({ description: "Removed from saved items" });
-        } else {
-          newSet.add(targetId);
-          toast({ description: "Saved to your library" });
-        }
-        return newSet;
-      });
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      if (data?.action === "saved") {
+        toast({ description: "Saved to your library" });
+      } else {
+        toast({ description: "Removed from saved items" });
+      }
     },
   });
 
@@ -576,11 +586,11 @@ export default function CommunityPage() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleLike(discussion)}
-                                  className={likedPosts.has(discussion.id) ? "text-accent" : ""}
+                                  className={isItemLiked(discussion) ? "text-accent" : ""}
                                   data-testid={`button-like-${discussion.id}`}
                                   disabled={likeMutation.isPending}
                                 >
-                                  <Heart className={`h-4 w-4 mr-1.5 ${likedPosts.has(discussion.id) ? "fill-current" : ""}`} />
+                                  <Heart className={`h-4 w-4 mr-1.5 ${isItemLiked(discussion) ? "fill-current" : ""}`} />
                                   <span>{discussion.likesCount || 0}</span>
                                 </Button>
                                 <Button
@@ -597,11 +607,11 @@ export default function CommunityPage() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleSave(discussion)}
-                                  className={savedPosts.has(discussion.id) ? "text-accent" : ""}
+                                  className={isItemSaved(discussion) ? "text-accent" : ""}
                                   data-testid={`button-save-${discussion.id}`}
                                   disabled={saveMutation.isPending}
                                 >
-                                  <Bookmark className={`h-4 w-4 ${savedPosts.has(discussion.id) ? "fill-current" : ""}`} />
+                                  <Bookmark className={`h-4 w-4 ${isItemSaved(discussion) ? "fill-current" : ""}`} />
                                 </Button>
                                 {detailLink && (
                                   <Button variant="ghost" size="sm" asChild>
