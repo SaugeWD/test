@@ -42,6 +42,7 @@ import {
   FileText,
   Image as ImageIcon,
   Heart,
+  Pin,
 } from "lucide-react";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { useAuth } from "@/context/AuthContext";
@@ -455,6 +456,17 @@ export default function MessagesPage() {
     },
   });
 
+  const deleteConversationMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiRequest("DELETE", `/api/messages/conversations/${userId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+      setSelectedConversation(null);
+    },
+  });
+
   const handleSendMessage = () => {
     if ((!messageText.trim() && pendingAttachments.length === 0) || !selectedConversation || isBlocked) return;
     sendMutation.mutate({
@@ -615,11 +627,11 @@ export default function MessagesPage() {
                 ) : (
                   <div>
                     {filteredConversations.map((conv) => (
-                      <button
+                      <div
                         key={conv.id}
                         onClick={() => setSelectedConversation(conv)}
                         className={cn(
-                          "w-full flex items-start gap-3 p-4 border-b transition-colors hover:bg-accent/5 text-left",
+                          "w-full flex items-start gap-3 p-4 border-b transition-colors hover:bg-accent/5 text-left cursor-pointer group",
                           selectedConversation?.id === conv.id && "bg-accent/10"
                         )}
                         data-testid={`conversation-item-${conv.id}`}
@@ -648,9 +660,62 @@ export default function MessagesPage() {
                                 />
                               )}
                             </div>
-                            <span className="text-xs text-muted-foreground flex-shrink-0">
-                              {conv.timestamp}
-                            </span>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                  }}
+                                  data-testid={`button-pin-conv-${conv.id}`}
+                                >
+                                  <Pin className="h-3 w-3" />
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={(e) => e.stopPropagation()}
+                                      data-testid={`button-conv-menu-${conv.id}`}
+                                    >
+                                      <MoreVertical className="h-3 w-3" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                      }}
+                                      data-testid={`button-pin-menu-conv-${conv.id}`}
+                                    >
+                                      <Pin className="mr-2 h-4 w-4" />
+                                      Pin conversation
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteConversationMutation.mutate(conv.user.id);
+                                      }}
+                                      className="text-destructive"
+                                      data-testid={`button-delete-conv-${conv.id}`}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete conversation
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                              {conv.unread > 0 && (
+                                <Badge className="h-5 min-w-5 px-1.5">
+                                  {conv.unread}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center justify-between gap-2">
                             <p
@@ -663,14 +728,12 @@ export default function MessagesPage() {
                             >
                               {conv.lastMessage}
                             </p>
-                            {conv.unread > 0 && (
-                              <Badge className="flex-shrink-0 h-5 min-w-5 px-1.5">
-                                {conv.unread}
-                              </Badge>
-                            )}
+                            <span className="text-xs text-muted-foreground flex-shrink-0">
+                              {conv.timestamp}
+                            </span>
                           </div>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 )}
