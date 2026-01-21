@@ -34,8 +34,15 @@ import {
   Newspaper,
   FileText,
   Calendar,
-  DollarSign
+  DollarSign,
+  Reply,
+  Pencil,
+  Trash2,
+  X,
+  Check,
+  MoreVertical
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -102,6 +109,10 @@ export default function CommunityPage() {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [selectedDiscussion, setSelectedDiscussion] = useState<UnifiedFeedItem | null>(null);
   const [newComment, setNewComment] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState("");
   const { toast } = useToast();
   
   useEffect(() => {
@@ -289,7 +300,45 @@ export default function CommunityPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/comments", selectedDiscussion?.feedType, selectedDiscussion?.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       setNewComment("");
+      setReplyingToId(null);
+      setReplyContent("");
       toast({ description: "Comment added" });
+    },
+  });
+
+  const likeCommentMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      const res = await apiRequest("POST", "/api/likes", { targetType: "comment", targetId: commentId });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/comments", selectedDiscussion?.feedType, selectedDiscussion?.id] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/likes`] });
+    },
+  });
+
+  const editCommentMutation = useMutation({
+    mutationFn: async ({ commentId, content }: { commentId: string; content: string }) => {
+      const res = await apiRequest("PATCH", `/api/comments/${commentId}`, { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/comments", selectedDiscussion?.feedType, selectedDiscussion?.id] });
+      setEditingCommentId(null);
+      setEditingContent("");
+      toast({ description: "Comment updated" });
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      const res = await apiRequest("DELETE", `/api/comments/${commentId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/comments", selectedDiscussion?.feedType, selectedDiscussion?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      toast({ description: "Comment deleted" });
     },
   });
 
@@ -910,19 +959,141 @@ export default function CommunityPage() {
               ) : comments.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">No comments yet. Be the first to comment!</p>
               ) : (
-                comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-3" data-testid={`comment-${comment.id}`}>
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={comment.user?.avatar} />
-                      <AvatarFallback>{getInitials(comment.user?.name || "U")}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{comment.user?.name || "Unknown"}</span>
-                        <span className="text-xs text-muted-foreground">{getTimeAgo(comment.createdAt)}</span>
+                comments.map((comment: any) => (
+                  <div key={comment.id} className="space-y-2" data-testid={`comment-${comment.id}`}>
+                    <div className="flex gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={comment.user?.avatar} />
+                        <AvatarFallback>{getInitials(comment.user?.name || "U")}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{comment.user?.name || "Unknown"}</span>
+                            <span className="text-xs text-muted-foreground">{getTimeAgo(comment.createdAt)}</span>
+                          </div>
+                          {user && comment.user?.id === user.id && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" data-testid={`button-comment-menu-${comment.id}`}>
+                                  <MoreVertical className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem 
+                                  onClick={() => { setEditingCommentId(comment.id); setEditingContent(comment.content); }}
+                                  data-testid={`button-edit-comment-${comment.id}`}
+                                >
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => deleteCommentMutation.mutate(comment.id)}
+                                  className="text-destructive"
+                                  data-testid={`button-delete-comment-${comment.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                        {editingCommentId === comment.id ? (
+                          <div className="mt-2 space-y-2">
+                            <Textarea
+                              value={editingContent}
+                              onChange={(e) => setEditingContent(e.target.value)}
+                              className="min-h-[60px]"
+                              data-testid="textarea-edit-comment"
+                            />
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                onClick={() => editCommentMutation.mutate({ commentId: comment.id, content: editingContent })}
+                                disabled={!editingContent.trim() || editCommentMutation.isPending}
+                                data-testid="button-save-edit"
+                              >
+                                <Check className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => { setEditingCommentId(null); setEditingContent(""); }}
+                                data-testid="button-cancel-edit"
+                              >
+                                <X className="h-3 w-3 mr-1" />
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm mt-1">{comment.content}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 px-2 text-xs"
+                            onClick={() => user && likeCommentMutation.mutate(comment.id)}
+                            disabled={!user}
+                            data-testid={`button-like-comment-${comment.id}`}
+                          >
+                            <Heart className={`h-3 w-3 mr-1 ${userLikes.some(l => l.targetType === "comment" && l.targetId === comment.id) ? "fill-current text-red-500" : ""}`} />
+                            {comment.likesCount || 0}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 px-2 text-xs"
+                            onClick={() => { setReplyingToId(replyingToId === comment.id ? null : comment.id); setReplyContent(""); }}
+                            data-testid={`button-reply-comment-${comment.id}`}
+                          >
+                            <Reply className="h-3 w-3 mr-1" />
+                            Reply
+                          </Button>
+                        </div>
                       </div>
-                      <p className="text-sm mt-1">{comment.content}</p>
                     </div>
+                    {replyingToId === comment.id && (
+                      <div className="ml-11 space-y-2">
+                        <Textarea
+                          placeholder={`Reply to ${comment.user?.name || "user"}...`}
+                          value={replyContent}
+                          onChange={(e) => setReplyContent(e.target.value)}
+                          className="min-h-[60px]"
+                          data-testid="textarea-reply"
+                        />
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm"
+                            onClick={() => {
+                              if (selectedDiscussion && replyContent.trim()) {
+                                commentMutation.mutate({
+                                  targetType: selectedDiscussion.feedType,
+                                  targetId: selectedDiscussion.id,
+                                  content: `@${comment.user?.name || "user"} ${replyContent.trim()}`,
+                                });
+                              }
+                            }}
+                            disabled={!replyContent.trim() || commentMutation.isPending}
+                            data-testid="button-send-reply"
+                          >
+                            <Send className="h-3 w-3 mr-1" />
+                            Reply
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => { setReplyingToId(null); setReplyContent(""); }}
+                            data-testid="button-cancel-reply"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
