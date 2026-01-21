@@ -359,6 +359,10 @@ function PostCard({ post }: { post: FeedPost }) {
       queryClient.invalidateQueries({ queryKey: [`/api/likes/post/${post.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/likes`] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "posts"
+      });
     },
   });
 
@@ -370,6 +374,10 @@ function PostCard({ post }: { post: FeedPost }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "posts"
+      });
     },
   });
 
@@ -381,6 +389,10 @@ function PostCard({ post }: { post: FeedPost }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/comments/post/${post.id}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "posts"
+      });
       setNewComment("");
     },
   });
