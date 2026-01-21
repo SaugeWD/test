@@ -232,10 +232,14 @@ export default function CommunityPage() {
       const res = await apiRequest("POST", "/api/likes", { targetType, targetId });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, { targetType, targetId }) => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/likes`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "likes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/likes", targetType, targetId] });
       queryClient.invalidateQueries({ predicate: (query) => 
         Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "posts"
       });
@@ -248,9 +252,11 @@ export default function CommunityPage() {
       return res.json();
     },
     onSuccess: (data) => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       if (data?.action === "saved") {
         toast({ description: "Saved to your library" });
       } else {

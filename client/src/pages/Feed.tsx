@@ -310,8 +310,11 @@ function PostCard({ post }: { post: FeedPost }) {
   const [selectedImage, setSelectedImage] = useState<number | null>(null);
   const { user, isAuthenticated } = useAuth();
 
+  // Get the actual content type (project, post, research, news, job, competition)
+  const contentType = post.feedType || "post";
+
   const { data: likeData } = useQuery<{ count: number }>({
-    queryKey: [`/api/likes/post/${post.id}`],
+    queryKey: [`/api/likes/${contentType}/${post.id}`],
   });
 
   const { data: userLikes = [] } = useQuery<Array<{ targetType: string; targetId: string }>>({
@@ -325,15 +328,15 @@ function PostCard({ post }: { post: FeedPost }) {
   });
 
   const { data: commentsData = [] } = useQuery<Array<DbComment & { user?: User }>>({
-    queryKey: [`/api/comments/post/${post.id}`],
+    queryKey: [`/api/comments/${contentType}/${post.id}`],
   });
 
   const isLiked = userLikes.some(
-    (like) => like.targetType === "post" && like.targetId === post.id
+    (like) => like.targetType === contentType && like.targetId === post.id
   );
 
   const isSaved = savedItems.some(
-    (item) => item.targetType === "post" && item.targetId === post.id
+    (item) => item.targetType === contentType && item.targetId === post.id
   );
 
   const likes = likeData?.count ?? post.likes;
@@ -352,13 +355,16 @@ function PostCard({ post }: { post: FeedPost }) {
 
   const likeMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/likes", { targetType: "post", targetId: post.id });
+      const res = await apiRequest("POST", "/api/likes", { targetType: contentType, targetId: post.id });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/likes/post/${post.id}`] });
+      // Invalidate all related queries for cross-page sync
+      queryClient.invalidateQueries({ queryKey: [`/api/likes/${contentType}/${post.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/likes`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "likes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       queryClient.invalidateQueries({ predicate: (query) => 
         Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "posts"
@@ -368,12 +374,14 @@ function PostCard({ post }: { post: FeedPost }) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/saved", { targetType: "post", targetId: post.id });
+      const res = await apiRequest("POST", "/api/saved", { targetType: contentType, targetId: post.id });
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       queryClient.invalidateQueries({ predicate: (query) => 
         Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "posts"
@@ -383,12 +391,13 @@ function PostCard({ post }: { post: FeedPost }) {
 
   const commentMutation = useMutation({
     mutationFn: async (content: string) => {
-      const res = await apiRequest("POST", "/api/comments", { targetType: "post", targetId: post.id, content });
+      const res = await apiRequest("POST", "/api/comments", { targetType: contentType, targetId: post.id, content });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/comments/post/${post.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/comments/${contentType}/${post.id}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       queryClient.invalidateQueries({ predicate: (query) => 
         Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "posts"

@@ -73,8 +73,13 @@ export function SocialInteractions({
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/likes", contentType, contentId] });
       queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "likes"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/likes`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       if (!isLiked) {
         toast({
           description: "Added to your liked content",
@@ -98,7 +103,11 @@ export function SocialInteractions({
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       toast({
         description: isSaved ? "Removed from saved items" : "Saved to your library",
       });
