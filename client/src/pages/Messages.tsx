@@ -250,12 +250,23 @@ export default function MessagesPage() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "pinnedConversations") {
+        setPinnedConversations(e.newValue ? JSON.parse(e.newValue) : []);
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
   const togglePinConversation = (convId: string) => {
     setPinnedConversations(prev => {
       const newPinned = prev.includes(convId) 
         ? prev.filter(id => id !== convId)
         : [...prev, convId];
       localStorage.setItem("pinnedConversations", JSON.stringify(newPinned));
+      window.dispatchEvent(new StorageEvent("storage", { key: "pinnedConversations", newValue: JSON.stringify(newPinned) }));
       return newPinned;
     });
   };

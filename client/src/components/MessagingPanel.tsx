@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MessageCircle, Send, Search, Loader2, ExternalLink, Heart, Edit, Trash2, Reply, MoreVertical, Check, CheckCheck, X, Pin } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -75,12 +75,23 @@ export function MessagingPanel() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "pinnedConversations") {
+        setPinnedConversations(e.newValue ? JSON.parse(e.newValue) : []);
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
   const togglePinConversation = (convId: string) => {
     setPinnedConversations(prev => {
       const newPinned = prev.includes(convId) 
         ? prev.filter(id => id !== convId)
         : [...prev, convId];
       localStorage.setItem("pinnedConversations", JSON.stringify(newPinned));
+      window.dispatchEvent(new StorageEvent("storage", { key: "pinnedConversations", newValue: JSON.stringify(newPinned) }));
       return newPinned;
     });
   };
