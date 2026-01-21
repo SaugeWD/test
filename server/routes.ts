@@ -1905,10 +1905,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         return res.status(403).json({ message: "You can only delete your own messages" });
       }
       
-      await storage.updateMessage(messageId, { 
-        isDeleted: true,
-        content: "This message was deleted"
-      });
+      await storage.deleteMessage(messageId);
       res.json({ message: "Message deleted" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete message" });

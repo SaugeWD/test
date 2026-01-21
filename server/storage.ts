@@ -101,6 +101,7 @@ export interface IStorage {
   getConversation(user1Id: string, user2Id: string): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
   updateMessage(id: string, data: Partial<Message>): Promise<Message | undefined>;
+  deleteMessage(id: string): Promise<void>;
   markMessageRead(id: string): Promise<void>;
 
   // Notifications
@@ -457,6 +458,10 @@ export class DatabaseStorage implements IStorage {
   async updateMessage(id: string, data: Partial<Message>): Promise<Message | undefined> {
     const [updated] = await db.update(messages).set(data).where(eq(messages.id, id)).returning();
     return updated || undefined;
+  }
+
+  async deleteMessage(id: string): Promise<void> {
+    await db.delete(messages).where(eq(messages.id, id));
   }
 
   async markMessageRead(id: string): Promise<void> {
