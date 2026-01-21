@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageCircle, Send, Search, Loader2, ExternalLink, Heart, Edit, Trash2, Reply, MoreVertical, Check, CheckCheck, X } from "lucide-react";
+import { MessageCircle, Send, Search, Loader2, ExternalLink, Heart, Edit, Trash2, Reply, MoreVertical, Check, CheckCheck, X, Pin } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,6 +151,15 @@ export function MessagingPanel() {
     },
   });
 
+  const deleteConversationMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await apiRequest("DELETE", `/api/messages/conversations/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
+    },
+  });
+
   const handleSendMessage = () => {
     if (!newMessage.trim() || !selectedConversation) return;
     sendMutation.mutate({ 
@@ -230,38 +239,90 @@ export function MessagingPanel() {
               ) : (
                 <div className="space-y-1 p-2">
                   {conversations.map((conversation) => (
-                    <button
+                    <div
                       key={conversation.id}
-                      onClick={() => setSelectedConversation(conversation)}
-                      className="w-full rounded-lg p-4 text-left transition-colors hover:bg-accent/5"
+                      className="w-full rounded-lg p-4 text-left transition-colors hover:bg-accent/10 group relative cursor-pointer"
                       data-testid={`conversation-${conversation.id}`}
                     >
-                      <div className="flex gap-3">
-                        <div className="relative">
-                          <Avatar className="h-12 w-12">
+                      <div className="flex gap-3" onClick={() => setSelectedConversation(conversation)}>
+                        <Link 
+                          href={`/profile/${conversation.user.id}`} 
+                          onClick={(e) => e.stopPropagation()}
+                          className="relative"
+                        >
+                          <Avatar className="h-12 w-12 hover:ring-2 hover:ring-accent transition-all">
                             <AvatarImage src={conversation.user.avatar || undefined} />
                             <AvatarFallback>{conversation.user.name[0]}</AvatarFallback>
                           </Avatar>
                           {conversation.user.online && (
                             <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-green-500" />
                           )}
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-sm">{conversation.user.name}</span>
-                            <span className="text-xs text-muted-foreground">{conversation.timestamp}</span>
+                        </Link>
+                        <div className="flex-1 space-y-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-sm truncate">{conversation.user.name}</span>
+                            <span className="text-xs text-muted-foreground flex-shrink-0">{conversation.timestamp}</span>
                           </div>
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2">
                             <p className="text-sm text-muted-foreground truncate">{conversation.lastMessage}</p>
                             {conversation.unread > 0 && (
-                              <Badge className="ml-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center">
+                              <Badge className="ml-2 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center flex-shrink-0">
                                 {conversation.unread}
                               </Badge>
                             )}
                           </div>
                         </div>
                       </div>
-                    </button>
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          data-testid={`button-pin-conversation-${conversation.id}`}
+                        >
+                          <Pin className="h-3.5 w-3.5" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={(e) => e.stopPropagation()}
+                              data-testid={`button-conversation-menu-${conversation.id}`}
+                            >
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
+                              data-testid={`button-pin-menu-${conversation.id}`}
+                            >
+                              <Pin className="mr-2 h-4 w-4" />
+                              Pin conversation
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteConversationMutation.mutate(conversation.user.id);
+                              }}
+                              className="text-destructive"
+                              data-testid={`button-delete-conversation-${conversation.id}`}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete conversation
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}

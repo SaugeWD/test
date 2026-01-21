@@ -102,6 +102,7 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   updateMessage(id: string, data: Partial<Message>): Promise<Message | undefined>;
   deleteMessage(id: string): Promise<void>;
+  deleteConversation(user1Id: string, user2Id: string): Promise<void>;
   markMessageRead(id: string): Promise<void>;
 
   // Notifications
@@ -463,6 +464,15 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMessage(id: string): Promise<void> {
     await db.delete(messages).where(eq(messages.id, id));
+  }
+
+  async deleteConversation(user1Id: string, user2Id: string): Promise<void> {
+    await db.delete(messages).where(
+      or(
+        and(eq(messages.senderId, user1Id), eq(messages.receiverId, user2Id)),
+        and(eq(messages.senderId, user2Id), eq(messages.receiverId, user1Id))
+      )
+    );
   }
 
   async markMessageRead(id: string): Promise<void> {

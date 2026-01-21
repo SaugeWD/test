@@ -1834,6 +1834,16 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  app.delete("/api/messages/conversations/:userId", authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { userId } = req.params;
+      await storage.deleteConversation(req.user!.id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete conversation" });
+    }
+  });
+
   app.get("/api/messages", authenticateToken, async (req: AuthenticatedRequest, res) => {
     try {
       const messages = await storage.getMessages(req.user!.id);
