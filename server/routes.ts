@@ -492,12 +492,16 @@ export async function registerRoutes(app: Express): Promise<void> {
         if (user) usersMap.set(userId, user);
       }
       
-      // Transform to unified feed format
+      // Transform to unified feed format with actual counts
       const feedItems: any[] = [];
       
-      // Add posts
-      postsData.forEach(post => {
+      // Add posts with real counts
+      for (const post of postsData) {
         const author = usersMap.get(post.authorId || '');
+        const [likesCount, commentsCount] = await Promise.all([
+          storage.getLikeCount('post', post.id),
+          storage.getCommentCount('post', post.id),
+        ]);
         feedItems.push({
           id: post.id,
           feedType: 'post',
@@ -516,14 +520,18 @@ export async function registerRoutes(app: Express): Promise<void> {
             isVerified: author.isVerified,
             verificationType: author.verificationType,
           } : null,
-          likesCount: post.likesCount || 0,
-          commentsCount: post.commentsCount || 0,
+          likesCount,
+          commentsCount,
         });
-      });
+      }
       
-      // Add projects
-      projectsData.forEach(project => {
+      // Add projects with real counts
+      for (const project of projectsData) {
         const author = usersMap.get(project.authorId || '');
+        const [likesCount, commentsCount] = await Promise.all([
+          storage.getLikeCount('project', project.id),
+          storage.getCommentCount('project', project.id),
+        ]);
         feedItems.push({
           id: project.id,
           feedType: 'project',
@@ -542,16 +550,20 @@ export async function registerRoutes(app: Express): Promise<void> {
             isVerified: author.isVerified,
             verificationType: author.verificationType,
           } : null,
-          likesCount: 0,
-          commentsCount: 0,
+          likesCount,
+          commentsCount,
           location: project.location,
           year: project.year,
         });
-      });
+      }
       
-      // Add research
-      researchData.forEach(paper => {
+      // Add research with real counts
+      for (const paper of researchData) {
         const author = usersMap.get(paper.submittedById || '');
+        const [likesCount, commentsCount] = await Promise.all([
+          storage.getLikeCount('research', paper.id),
+          storage.getCommentCount('research', paper.id),
+        ]);
         feedItems.push({
           id: paper.id,
           feedType: 'research',
@@ -570,16 +582,20 @@ export async function registerRoutes(app: Express): Promise<void> {
             isVerified: author.isVerified,
             verificationType: author.verificationType,
           } : { name: paper.authors },
-          likesCount: 0,
-          commentsCount: 0,
+          likesCount,
+          commentsCount,
           university: paper.university,
           language: paper.language,
         });
-      });
+      }
       
-      // Add news
-      newsData.forEach(item => {
+      // Add news with real counts
+      for (const item of newsData) {
         const author = usersMap.get(item.submittedById || '');
+        const [likesCount, commentsCount] = await Promise.all([
+          storage.getLikeCount('news', item.id),
+          storage.getCommentCount('news', item.id),
+        ]);
         feedItems.push({
           id: item.id,
           feedType: 'news',
@@ -598,16 +614,20 @@ export async function registerRoutes(app: Express): Promise<void> {
             isVerified: author.isVerified,
             verificationType: author.verificationType,
           } : { name: item.source || 'ArchNet' },
-          likesCount: 0,
-          commentsCount: 0,
+          likesCount,
+          commentsCount,
           isEvent: item.isEvent,
           eventDate: item.eventDate,
           eventLocation: item.eventLocation,
         });
-      });
+      }
       
-      // Add jobs
-      jobsData.forEach(job => {
+      // Add jobs with real counts
+      for (const job of jobsData) {
+        const [likesCount, commentsCount] = await Promise.all([
+          storage.getLikeCount('job', job.id),
+          storage.getCommentCount('job', job.id),
+        ]);
         feedItems.push({
           id: job.id,
           feedType: 'job',
@@ -619,17 +639,21 @@ export async function registerRoutes(app: Express): Promise<void> {
           category: 'Career',
           createdAt: job.createdAt,
           author: { name: job.company },
-          likesCount: 0,
-          commentsCount: 0,
+          likesCount,
+          commentsCount,
           company: job.company,
           location: job.location,
           salary: job.salary,
           jobType: job.type,
         });
-      });
+      }
       
-      // Add competitions
-      competitionsData.forEach(comp => {
+      // Add competitions with real counts
+      for (const comp of competitionsData) {
+        const [likesCount, commentsCount] = await Promise.all([
+          storage.getLikeCount('competition', comp.id),
+          storage.getCommentCount('competition', comp.id),
+        ]);
         feedItems.push({
           id: comp.id,
           feedType: 'competition',
@@ -641,14 +665,14 @@ export async function registerRoutes(app: Express): Promise<void> {
           category: comp.category,
           createdAt: comp.createdAt,
           author: { name: comp.organizer || 'Competition' },
-          likesCount: 0,
-          commentsCount: 0,
+          likesCount,
+          commentsCount,
           deadline: comp.deadline,
           registrationDeadline: comp.registrationDeadline,
           prize: comp.prize,
           status: comp.status,
         });
-      });
+      }
       
       // Filter muted users if authenticated
       let filteredItems = feedItems;

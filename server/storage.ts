@@ -119,6 +119,7 @@ export interface IStorage {
 
   // Comments
   getComments(targetType: string, targetId: string): Promise<Comment[]>;
+  getCommentCount(targetType: string, targetId: string): Promise<number>;
   getComment(id: string): Promise<Comment | undefined>;
   createComment(comment: InsertComment): Promise<Comment>;
   updateComment(id: string, content: string): Promise<Comment | undefined>;
@@ -522,6 +523,12 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(comments)
       .where(and(eq(comments.targetType, targetType), eq(comments.targetId, targetId)))
       .orderBy(comments.createdAt);
+  }
+
+  async getCommentCount(targetType: string, targetId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` }).from(comments)
+      .where(and(eq(comments.targetType, targetType), eq(comments.targetId, targetId)));
+    return result[0]?.count || 0;
   }
 
   async getComment(id: string): Promise<Comment | undefined> {
