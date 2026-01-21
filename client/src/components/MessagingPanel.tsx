@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MessageCircle, Send, Search, Loader2, ExternalLink, Heart, Edit, Trash2, Reply, MoreVertical, Check, CheckCheck, X, Pin } from "lucide-react";
+import { MessageCircle, Send, Search, Loader2, ExternalLink, Heart, Edit, Trash2, Reply, MoreVertical, Check, CheckCheck, X, Pin, VolumeX } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -327,12 +327,11 @@ export function MessagingPanel() {
                                     <DropdownMenuItem
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        togglePinConversation(conversation.id);
                                       }}
-                                      data-testid={`button-pin-menu-${conversation.id}`}
+                                      data-testid={`button-mute-menu-${conversation.id}`}
                                     >
-                                      <Pin className={cn("mr-2 h-4 w-4", pinnedConversations.includes(conversation.id) && "fill-current text-accent")} />
-                                      {pinnedConversations.includes(conversation.id) ? "Unpin conversation" : "Pin conversation"}
+                                      <VolumeX className="mr-2 h-4 w-4" />
+                                      Mute conversation
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
