@@ -74,11 +74,18 @@ export function MessagingPanel() {
     const saved = localStorage.getItem("pinnedConversations");
     return saved ? JSON.parse(saved) : [];
   });
+  const [mutedConversations, setMutedConversations] = useState<string[]>(() => {
+    const saved = localStorage.getItem("mutedConversations");
+    return saved ? JSON.parse(saved) : [];
+  });
 
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "pinnedConversations") {
         setPinnedConversations(e.newValue ? JSON.parse(e.newValue) : []);
+      }
+      if (e.key === "mutedConversations") {
+        setMutedConversations(e.newValue ? JSON.parse(e.newValue) : []);
       }
     };
     window.addEventListener("storage", handleStorageChange);
@@ -93,6 +100,17 @@ export function MessagingPanel() {
       localStorage.setItem("pinnedConversations", JSON.stringify(newPinned));
       window.dispatchEvent(new StorageEvent("storage", { key: "pinnedConversations", newValue: JSON.stringify(newPinned) }));
       return newPinned;
+    });
+  };
+
+  const toggleMuteConversation = (convId: string) => {
+    setMutedConversations(prev => {
+      const newMuted = prev.includes(convId) 
+        ? prev.filter(id => id !== convId)
+        : [...prev, convId];
+      localStorage.setItem("mutedConversations", JSON.stringify(newMuted));
+      window.dispatchEvent(new StorageEvent("storage", { key: "mutedConversations", newValue: JSON.stringify(newMuted) }));
+      return newMuted;
     });
   };
 
@@ -296,6 +314,9 @@ export function MessagingPanel() {
                                 <Pin className="h-3 w-3 text-accent flex-shrink-0" />
                               )}
                               <span className="font-semibold text-sm truncate">{conversation.user.name}</span>
+                              {mutedConversations.includes(conversation.id) && (
+                                <VolumeX className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              )}
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
@@ -327,11 +348,12 @@ export function MessagingPanel() {
                                     <DropdownMenuItem
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        toggleMuteConversation(conversation.id);
                                       }}
                                       data-testid={`button-mute-menu-${conversation.id}`}
                                     >
-                                      <VolumeX className="mr-2 h-4 w-4" />
-                                      Mute conversation
+                                      <VolumeX className={cn("mr-2 h-4 w-4", mutedConversations.includes(conversation.id) && "text-muted-foreground")} />
+                                      {mutedConversations.includes(conversation.id) ? "Unmute conversation" : "Mute conversation"}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem

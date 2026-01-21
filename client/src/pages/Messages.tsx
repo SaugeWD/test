@@ -43,6 +43,7 @@ import {
   Image as ImageIcon,
   Heart,
   Pin,
+  VolumeX,
 } from "lucide-react";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { useAuth } from "@/context/AuthContext";
@@ -249,11 +250,18 @@ export default function MessagesPage() {
     const saved = localStorage.getItem("pinnedConversations");
     return saved ? JSON.parse(saved) : [];
   });
+  const [mutedConversations, setMutedConversations] = useState<string[]>(() => {
+    const saved = localStorage.getItem("mutedConversations");
+    return saved ? JSON.parse(saved) : [];
+  });
 
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "pinnedConversations") {
         setPinnedConversations(e.newValue ? JSON.parse(e.newValue) : []);
+      }
+      if (e.key === "mutedConversations") {
+        setMutedConversations(e.newValue ? JSON.parse(e.newValue) : []);
       }
     };
     window.addEventListener("storage", handleStorageChange);
@@ -268,6 +276,17 @@ export default function MessagesPage() {
       localStorage.setItem("pinnedConversations", JSON.stringify(newPinned));
       window.dispatchEvent(new StorageEvent("storage", { key: "pinnedConversations", newValue: JSON.stringify(newPinned) }));
       return newPinned;
+    });
+  };
+
+  const toggleMuteConversation = (convId: string) => {
+    setMutedConversations(prev => {
+      const newMuted = prev.includes(convId) 
+        ? prev.filter(id => id !== convId)
+        : [...prev, convId];
+      localStorage.setItem("mutedConversations", JSON.stringify(newMuted));
+      window.dispatchEvent(new StorageEvent("storage", { key: "mutedConversations", newValue: JSON.stringify(newMuted) }));
+      return newMuted;
     });
   };
 
@@ -695,6 +714,9 @@ export default function MessagesPage() {
                                   size="sm"
                                 />
                               )}
+                              {mutedConversations.includes(conv.id) && (
+                                <VolumeX className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              )}
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
@@ -726,12 +748,12 @@ export default function MessagesPage() {
                                     <DropdownMenuItem
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        togglePinConversation(conv.id);
+                                        toggleMuteConversation(conv.id);
                                       }}
-                                      data-testid={`button-pin-menu-conv-${conv.id}`}
+                                      data-testid={`button-mute-menu-conv-${conv.id}`}
                                     >
-                                      <Pin className={cn("mr-2 h-4 w-4", pinnedConversations.includes(conv.id) && "fill-current text-accent")} />
-                                      {pinnedConversations.includes(conv.id) ? "Unpin conversation" : "Pin conversation"}
+                                      <VolumeX className={cn("mr-2 h-4 w-4", mutedConversations.includes(conv.id) && "text-muted-foreground")} />
+                                      {mutedConversations.includes(conv.id) ? "Unmute conversation" : "Mute conversation"}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
