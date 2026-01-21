@@ -929,8 +929,13 @@ export default function CommunityPage() {
                 <Textarea
                   placeholder="Write a comment..."
                   value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  className="min-h-[80px]"
+                  onChange={(e) => {
+                    setNewComment(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                  }}
+                  className="min-h-[50px] max-h-[200px] resize-none overflow-hidden"
+                  style={{ height: 'auto' }}
                   data-testid="textarea-new-comment"
                 />
               </div>
@@ -1003,8 +1008,13 @@ export default function CommunityPage() {
                           <div className="mt-2 space-y-2">
                             <Textarea
                               value={editingContent}
-                              onChange={(e) => setEditingContent(e.target.value)}
-                              className="min-h-[60px]"
+                              onChange={(e) => {
+                                setEditingContent(e.target.value);
+                                e.target.style.height = 'auto';
+                                e.target.style.height = e.target.scrollHeight + 'px';
+                              }}
+                              className="min-h-[50px] max-h-[200px] resize-none overflow-hidden"
+                              style={{ height: 'auto' }}
                               data-testid="textarea-edit-comment"
                             />
                             <div className="flex gap-2">
@@ -1061,8 +1071,13 @@ export default function CommunityPage() {
                         <Textarea
                           placeholder={`Reply to ${comment.user?.name || "user"}...`}
                           value={replyContent}
-                          onChange={(e) => setReplyContent(e.target.value)}
-                          className="min-h-[60px]"
+                          onChange={(e) => {
+                            setReplyContent(e.target.value);
+                            e.target.style.height = 'auto';
+                            e.target.style.height = e.target.scrollHeight + 'px';
+                          }}
+                          className="min-h-[50px] max-h-[200px] resize-none overflow-hidden"
+                          style={{ height: 'auto' }}
                           data-testid="textarea-reply"
                         />
                         <div className="flex gap-2">
