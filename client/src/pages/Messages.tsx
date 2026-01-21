@@ -631,8 +631,8 @@ export default function MessagesPage() {
                         key={conv.id}
                         onClick={() => setSelectedConversation(conv)}
                         className={cn(
-                          "w-full flex items-start gap-3 p-4 border-b transition-colors hover:bg-accent/5 text-left cursor-pointer group",
-                          selectedConversation?.id === conv.id && "bg-accent/10"
+                          "w-full flex items-start gap-3 p-4 border-b transition-colors hover:bg-accent/10 text-left cursor-pointer group",
+                          selectedConversation?.id === conv.id && "bg-accent/20"
                         )}
                         data-testid={`conversation-item-${conv.id}`}
                       >
