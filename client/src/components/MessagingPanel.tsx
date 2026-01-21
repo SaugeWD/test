@@ -70,6 +70,20 @@ export function MessagingPanel() {
   const [replyToMessage, setReplyToMessage] = useState<DBMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<DBMessage | null>(null);
   const [editText, setEditText] = useState("");
+  const [pinnedConversations, setPinnedConversations] = useState<string[]>(() => {
+    const saved = localStorage.getItem("pinnedConversations");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const togglePinConversation = (convId: string) => {
+    setPinnedConversations(prev => {
+      const newPinned = prev.includes(convId) 
+        ? prev.filter(id => id !== convId)
+        : [...prev, convId];
+      localStorage.setItem("pinnedConversations", JSON.stringify(newPinned));
+      return newPinned;
+    });
+  };
 
   const { data: conversationsData, isLoading: loadingConversations } = useQuery<ConversationFromAPI[]>({
     queryKey: ["/api/messages/conversations"],
@@ -92,7 +106,13 @@ export function MessagingPanel() {
     lastMessage: c.lastMessage,
     timestamp: c.lastMessageAt ? formatTimeAgo(new Date(c.lastMessageAt)) : "",
     unread: c.unread,
-  }));
+  })).sort((a, b) => {
+    const aPinned = pinnedConversations.includes(a.id);
+    const bPinned = pinnedConversations.includes(b.id);
+    if (aPinned && !bPinned) return -1;
+    if (!aPinned && bPinned) return 1;
+    return 0;
+  });
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0);
 
@@ -260,19 +280,25 @@ export function MessagingPanel() {
                         </Link>
                         <div className="flex-1 space-y-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-semibold text-sm truncate">{conversation.user.name}</span>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {pinnedConversations.includes(conversation.id) && (
+                                <Pin className="h-3 w-3 text-accent flex-shrink-0" />
+                              )}
+                              <span className="font-semibold text-sm truncate">{conversation.user.name}</span>
+                            </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6"
+                                  className={cn("h-6 w-6", pinnedConversations.includes(conversation.id) && "text-accent")}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    togglePinConversation(conversation.id);
                                   }}
                                   data-testid={`button-pin-conversation-${conversation.id}`}
                                 >
-                                  <Pin className="h-3 w-3" />
+                                  <Pin className={cn("h-3 w-3", pinnedConversations.includes(conversation.id) && "fill-current")} />
                                 </Button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
@@ -290,11 +316,12 @@ export function MessagingPanel() {
                                     <DropdownMenuItem
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        togglePinConversation(conversation.id);
                                       }}
                                       data-testid={`button-pin-menu-${conversation.id}`}
                                     >
-                                      <Pin className="mr-2 h-4 w-4" />
-                                      Pin conversation
+                                      <Pin className={cn("mr-2 h-4 w-4", pinnedConversations.includes(conversation.id) && "fill-current text-accent")} />
+                                      {pinnedConversations.includes(conversation.id) ? "Unpin conversation" : "Pin conversation"}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
