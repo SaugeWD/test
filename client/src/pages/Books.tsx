@@ -36,7 +36,10 @@ function BookCard({ book }: { book: Book }) {
       });
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
       toast({
         description: isSaved ? "Removed from saved" : "Saved to your library",
       });

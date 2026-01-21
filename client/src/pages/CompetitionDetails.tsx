@@ -266,7 +266,10 @@ export default function CompetitionDetailsPage() {
       return response.json();
     },
     onSuccess: (data) => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/competitions"] });
       toast({
         description: data.saved ? "Saved to your library" : "Removed from saved",
       });

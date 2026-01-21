@@ -141,8 +141,13 @@ export default function ProjectDetail() {
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/likes", "project", id] });
       queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "likes"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/likes`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
     },
   });
 
@@ -155,7 +160,11 @@ export default function ProjectDetail() {
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       toast({
         description: isSaved ? "Removed from saved" : "Saved to library",
       });

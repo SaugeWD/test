@@ -238,7 +238,10 @@ function CompetitionCard({ competition }: { competition: Competition }) {
       });
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/competitions"] });
       toast({
         description: isSaved ? "Removed from saved" : "Saved to your library",
       });

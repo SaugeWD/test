@@ -76,8 +76,12 @@ export default function ResearchDetail() {
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/likes", "research", id] });
       queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "likes"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/likes`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/research"] });
     },
   });
 
@@ -90,7 +94,10 @@ export default function ResearchDetail() {
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/research"] });
       toast({
         description: isSaved ? "Removed from saved" : "Saved to library",
       });

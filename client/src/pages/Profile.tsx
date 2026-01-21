@@ -47,9 +47,13 @@ function SavedItemCard({ item }: { item: SavedItem }) {
       });
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/competitions"] });
       toast({ description: "Removed from saved items" });
     },
   });
@@ -165,17 +169,26 @@ function LikedItemCard({ item, onUnlike }: { item: Like; onUnlike: () => void })
 
   const unlikeMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/like", {
+      return apiRequest("POST", "/api/likes", {
         targetType: item.targetType,
         targetId: item.targetId,
       });
     },
     onSuccess: () => {
       onUnlike();
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/competitions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/likes", item.targetType, item.targetId] });
       queryClient.invalidateQueries({ predicate: (query) => 
         Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "posts"
+      });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" && query.queryKey[2] === "likes"
       });
       toast({ description: "Like removed" });
     },

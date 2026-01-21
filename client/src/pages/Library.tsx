@@ -29,7 +29,11 @@ export default function LibraryPage() {
       return apiRequest("POST", "/api/saved", { targetType, targetId });
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
     },
   });
 

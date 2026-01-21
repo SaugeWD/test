@@ -524,7 +524,10 @@ function JobCard({ job, user, toast, getTypeColor, formatPostedDate }: JobCardPr
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries for cross-page sync
       queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({ description: isSaved ? "Removed from saved" : "Job saved" });
     },
   });
