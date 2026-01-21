@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { 
   Search, 
   Users, 
@@ -98,6 +99,9 @@ export default function CommunityPage() {
   const [questionDescription, setQuestionDescription] = useState("");
   const [questionCategory, setQuestionCategory] = useState("");
   const [questionTags, setQuestionTags] = useState("");
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [selectedDiscussion, setSelectedDiscussion] = useState<UnifiedFeedItem | null>(null);
+  const [newComment, setNewComment] = useState("");
   const { toast } = useToast();
   
   useEffect(() => {
@@ -264,6 +268,48 @@ export default function CommunityPage() {
       }
     },
   });
+
+  // Fetch comments for selected discussion
+  const { data: comments = [], isLoading: isLoadingComments } = useQuery<Array<{
+    id: string;
+    content: string;
+    createdAt: string;
+    user: { id: string; name: string; avatar?: string };
+  }>>({
+    queryKey: ["/api/comments", selectedDiscussion?.feedType, selectedDiscussion?.id],
+    enabled: !!selectedDiscussion,
+  });
+
+  const commentMutation = useMutation({
+    mutationFn: async ({ targetType, targetId, content }: { targetType: string; targetId: string; content: string }) => {
+      const res = await apiRequest("POST", "/api/comments", { targetType, targetId, content });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/comments", selectedDiscussion?.feedType, selectedDiscussion?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feed"] });
+      setNewComment("");
+      toast({ description: "Comment added" });
+    },
+  });
+
+  const handleOpenComments = (item: UnifiedFeedItem) => {
+    setSelectedDiscussion(item);
+    setCommentsOpen(true);
+  };
+
+  const handlePostComment = () => {
+    if (!user) {
+      toast({ description: "Please sign in to comment", variant: "destructive" });
+      return;
+    }
+    if (!newComment.trim() || !selectedDiscussion) return;
+    commentMutation.mutate({
+      targetType: selectedDiscussion.feedType,
+      targetId: selectedDiscussion.id,
+      content: newComment.trim(),
+    });
+  };
 
   const handleLike = (item: UnifiedFeedItem) => {
     if (!user) return;
@@ -602,6 +648,7 @@ export default function CommunityPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  onClick={() => handleOpenComments(discussion)}
                                   data-testid={`button-comments-${discussion.id}`}
                                 >
                                   <MessageSquare className="h-4 w-4 mr-1.5" />
@@ -810,6 +857,79 @@ export default function CommunityPage() {
       </section>
 
       <Footer />
+
+      <Sheet open={commentsOpen} onOpenChange={setCommentsOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Comments
+            </SheetTitle>
+          </SheetHeader>
+          
+          <div className="mt-6 space-y-4">
+            {selectedDiscussion && (
+              <div className="border-b pb-4">
+                <h3 className="font-medium">{selectedDiscussion.title || "Discussion"}</h3>
+                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedDiscussion.content}</p>
+              </div>
+            )}
+
+            {user && (
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Write a comment..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  className="min-h-[80px]"
+                  data-testid="textarea-new-comment"
+                />
+              </div>
+            )}
+            {user && (
+              <Button 
+                onClick={handlePostComment} 
+                disabled={!newComment.trim() || commentMutation.isPending}
+                className="w-full"
+                data-testid="button-post-comment"
+              >
+                {commentMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                Post Comment
+              </Button>
+            )}
+
+            <div className="space-y-4 pt-4">
+              {isLoadingComments ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : comments.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No comments yet. Be the first to comment!</p>
+              ) : (
+                comments.map((comment) => (
+                  <div key={comment.id} className="flex gap-3" data-testid={`comment-${comment.id}`}>
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={comment.user?.avatar} />
+                      <AvatarFallback>{getInitials(comment.user?.name || "U")}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{comment.user?.name || "Unknown"}</span>
+                        <span className="text-xs text-muted-foreground">{getTimeAgo(comment.createdAt)}</span>
+                      </div>
+                      <p className="text-sm mt-1">{comment.content}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
