@@ -245,6 +245,20 @@ export default function MessagesPage() {
   const [editingMessage, setEditingMessage] = useState<DBMessage | null>(null);
   const [editText, setEditText] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<string[]>([]);
+  const [pinnedConversations, setPinnedConversations] = useState<string[]>(() => {
+    const saved = localStorage.getItem("pinnedConversations");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const togglePinConversation = (convId: string) => {
+    setPinnedConversations(prev => {
+      const newPinned = prev.includes(convId) 
+        ? prev.filter(id => id !== convId)
+        : [...prev, convId];
+      localStorage.setItem("pinnedConversations", JSON.stringify(newPinned));
+      return newPinned;
+    });
+  };
 
   const { uploadFile, isUploading } = useUpload({
     onSuccess: (response) => {
@@ -361,11 +375,19 @@ export default function MessagesPage() {
     unread: c.unread,
   }));
 
-  const filteredConversations = conversations.filter(
-    (conv) =>
-      conv.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conv.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredConversations = conversations
+    .filter(
+      (conv) =>
+        conv.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        conv.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      const aPinned = pinnedConversations.includes(a.id);
+      const bPinned = pinnedConversations.includes(b.id);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return 0;
+    });
 
   const sendMutation = useMutation({
     mutationFn: async (data: { receiverId: string; content: string; replyToId?: string | null; attachments?: string[] }) => {
@@ -645,6 +667,9 @@ export default function MessagesPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <div className="flex items-center gap-1.5 min-w-0">
+                              {pinnedConversations.includes(conv.id) && (
+                                <Pin className="h-3 w-3 text-accent flex-shrink-0" />
+                              )}
                               <span
                                 className={cn(
                                   "font-semibold text-sm truncate",
@@ -665,13 +690,14 @@ export default function MessagesPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6"
+                                  className={cn("h-6 w-6", pinnedConversations.includes(conv.id) && "text-accent")}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    togglePinConversation(conv.id);
                                   }}
                                   data-testid={`button-pin-conv-${conv.id}`}
                                 >
-                                  <Pin className="h-3 w-3" />
+                                  <Pin className={cn("h-3 w-3", pinnedConversations.includes(conv.id) && "fill-current")} />
                                 </Button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
@@ -689,11 +715,12 @@ export default function MessagesPage() {
                                     <DropdownMenuItem
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        togglePinConversation(conv.id);
                                       }}
                                       data-testid={`button-pin-menu-conv-${conv.id}`}
                                     >
-                                      <Pin className="mr-2 h-4 w-4" />
-                                      Pin conversation
+                                      <Pin className={cn("mr-2 h-4 w-4", pinnedConversations.includes(conv.id) && "fill-current text-accent")} />
+                                      {pinnedConversations.includes(conv.id) ? "Unpin conversation" : "Pin conversation"}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
